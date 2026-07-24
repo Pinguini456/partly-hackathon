@@ -1,0 +1,1 @@
+{"completed": {"annotation": {"objects": [{"code": "8401", "bounding_box": {"top_left": {"x": 674, "y": 989}, "bottom_right": {"x": 732, "y": 1009}}}, {"code": "89981", "description": "COMPUTER, HYBRID VEHICLE CONTROL", "bounding_box": {"top_left": {"x": 916, "y": 760}, "bottom_right": {"x": 973, "y": 782}}}]}}}

@@ -1,0 +1,1 @@
+{"completed": {"annotation": {"objects": [{"code": "KK1750", "description": "VISOR-SUNROOF", "bounding_box": {"top_left": {"x": 952, "y": 52}, "bottom_right": {"x": 1035, "y": 69}}}, {"code": "KK1752", "description": "BRKT-VISOR,SUN", "bounding_box": {"top_left": {"x": 1021, "y": 130}, "bottom_right": {"x": 1104, "y": 147}}}]}}}

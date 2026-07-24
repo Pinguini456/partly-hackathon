@@ -1,0 +1,1 @@
+{"completed": {"annotation": {"objects": [{"code": "KE4494", "description": "BAR-STRUT,FR", "bounding_box": {"top_left": {"x": 229, "y": 144}, "bottom_right": {"x": 312, "y": 162}}}, {"code": "KE5495", "description": "BAR-STRUT,RR", "bounding_box": {"top_left": {"x": 983, "y": 26}, "bottom_right": {"x": 1066, "y": 44}}}]}}}

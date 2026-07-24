@@ -1,0 +1,1 @@
+{"completed": {"annotation": {"objects": [{"code": "081466162G", "bounding_box": {"top_left": {"x": 250, "y": 527}, "bottom_right": {"x": 429, "y": 545}}}, {"code": "083686162G", "bounding_box": {"top_left": {"x": 250, "y": 493}, "bottom_right": {"x": 429, "y": 510}}}, {"code": "62684", "bounding_box": {"top_left": {"x": 235, "y": 400}, "bottom_right": {"x": 304, "y": 418}}}]}}}

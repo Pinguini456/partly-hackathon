@@ -1,0 +1,1 @@
+{"completed": {"annotation": {"objects": [{"code": "KD1060", "bounding_box": {"top_left": {"x": 300, "y": 451}, "bottom_right": {"x": 384, "y": 468}}}, {"code": "KD4060", "bounding_box": {"top_left": {"x": 927, "y": 452}, "bottom_right": {"x": 1010, "y": 469}}}]}}}
