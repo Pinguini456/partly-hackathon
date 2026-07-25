@@ -3,134 +3,18 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
-
-// --- Reused scheduling primitives (same rules as /timeline) --------------
-
-const dayMs = 86400000;
-const eta = (p: { eta: string }) => +new Date(p.eta);
-
-function nextWorkingDay(date: Date) {
-  const d = new Date(date);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return d;
-}
-
-const LABOUR_DAYS = 2;
-
-function fmt(date: Date) {
-  return date.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "short" });
-}
-
-function daysBetween(a: Date, b: Date) {
-  return Math.round((+a - +b) / dayMs);
-}
-
-// --- Synthetic supplier catalogue -----------------------------------------
-// The real dataset (partly-api) has no supplier/price/lead-time fields at
-// all — this is fabricated to demonstrate the optimiser, not real data.
-
-type Speed = "ground" | "standard" | "express" | "air";
-type SupplierOption = { supplier: string; price: number; eta: string; oem: boolean; speed: Speed };
-type PartKey = "headlamp" | "bumper" | "bracket";
-
-const CATALOGUE: Record<PartKey, { name: string; options: SupplierOption[] }> = {
-  headlamp: {
-    name: "Headlamp assembly",
-    options: [
-      { supplier: "OEM Air Freight", price: 560, eta: "2026-08-02", oem: true, speed: "air" },
-      { supplier: "OEM Express", price: 460, eta: "2026-08-04", oem: true, speed: "express" },
-      { supplier: "OEM Standard", price: 380, eta: "2026-08-07", oem: true, speed: "standard" },
-      { supplier: "OEM Ground", price: 300, eta: "2026-08-10", oem: true, speed: "ground" },
-    ],
-  },
-  bumper: {
-    name: "Front bumper cover",
-    options: [
-      { supplier: "Aftermarket Express", price: 260, eta: "2026-07-30", oem: false, speed: "express" },
-      { supplier: "OEM Standard", price: 210, eta: "2026-08-01", oem: true, speed: "standard" },
-      { supplier: "OEM Ground", price: 160, eta: "2026-08-03", oem: true, speed: "ground" },
-    ],
-  },
-  bracket: {
-    name: "Mounting bracket",
-    options: [
-      { supplier: "Dealer Stock", price: 150, eta: "2026-07-26", oem: true, speed: "standard" },
-      { supplier: "Aftermarket Ground", price: 110, eta: "2026-07-28", oem: false, speed: "ground" },
-      { supplier: "OEM Standard", price: 130, eta: "2026-07-31", oem: true, speed: "standard" },
-    ],
-  },
-};
-
-const PART_KEYS = Object.keys(CATALOGUE) as PartKey[];
-
-type Basket = {
-  chosen: Record<PartKey, SupplierOption>;
-  cost: number;
-  readyDate: Date;
-  gatingPart: PartKey;
-};
-
-function buildBaskets(oemOnly: boolean, groundOnly: boolean): Basket[] {
-  const options = PART_KEYS.map((key) => ({
-    key,
-    opts: CATALOGUE[key].options.filter(
-      (o) => (!oemOnly || o.oem) && (!groundOnly || o.speed === "ground" || o.speed === "standard"),
-    ),
-  }));
-
-  const baskets: Basket[] = [];
-
-  function recurse(i: number, chosen: Partial<Record<PartKey, SupplierOption>>) {
-    if (i === options.length) {
-      const full = chosen as Record<PartKey, SupplierOption>;
-      const cost = PART_KEYS.reduce((s, k) => s + full[k].price, 0);
-      const gatingPart = PART_KEYS.reduce((a, b) => (eta(full[a]) > eta(full[b]) ? a : b));
-      const readyDate = nextWorkingDay(new Date(eta(full[gatingPart]) + LABOUR_DAYS * dayMs));
-      baskets.push({ chosen: full, cost, readyDate, gatingPart });
-      return;
-    }
-    for (const opt of options[i].opts) {
-      recurse(i + 1, { ...chosen, [options[i].key]: opt });
-    }
-  }
-  recurse(0, {});
-  return baskets;
-}
-
-function paretoFrontier(baskets: Basket[]): Basket[] {
-  const dominates = (a: Basket, b: Basket) =>
-    a.cost <= b.cost &&
-    +a.readyDate <= +b.readyDate &&
-    (a.cost < b.cost || +a.readyDate < +b.readyDate);
-  return baskets
-    .filter((b) => !baskets.some((o) => dominates(o, b)))
-    .sort((a, b) => a.cost - b.cost);
-}
-
-function pickBestValue(frontier: Basket[], budget: number, target: Date): Basket {
-  const affordable = frontier.filter((b) => b.cost <= budget);
-  if (affordable.length) return affordable.reduce((a, b) => (+a.readyDate <= +b.readyDate ? a : b));
-  return frontier.reduce((a, b) => {
-    const lateA = Math.max(0, daysBetween(a.readyDate, target));
-    const lateB = Math.max(0, daysBetween(b.readyDate, target));
-    if (lateA !== lateB) return lateA < lateB ? a : b;
-    return a.cost < b.cost ? a : b;
-  });
-}
-
-// What would it cost/take to express the part currently gating this basket,
-// ignoring the ground-freight restriction just for that one part?
-function expressOverride(basket: Basket): Basket {
-  const key = basket.gatingPart;
-  const fastestOem = CATALOGUE[key].options
-    .filter((o) => o.oem)
-    .reduce((a, b) => (eta(a) < eta(b) ? a : b));
-  const chosen = { ...basket.chosen, [key]: fastestOem };
-  const cost = PART_KEYS.reduce((s, k) => s + chosen[k].price, 0);
-  const gatingPart = PART_KEYS.reduce((a, b) => (eta(chosen[a]) > eta(chosen[b]) ? a : b));
-  const readyDate = nextWorkingDay(new Date(eta(chosen[gatingPart]) + LABOUR_DAYS * dayMs));
-  return { chosen, cost, readyDate, gatingPart };
-}
+import {
+  CATALOGUE,
+  PART_KEYS,
+  Basket,
+  buildBaskets,
+  paretoFrontier,
+  pickBestValue,
+  expressOverride,
+  basketToTimelineParts,
+  fmt,
+  daysBetween,
+} from "@/src/lib/procurement";
 
 export default function ProcurementPage() {
   const router = useRouter();
@@ -171,20 +55,11 @@ export default function ProcurementPage() {
   const policyIsBinding =
     jobType === "insurance" && +expressScenario.readyDate < +fastestOut.readyDate;
 
-  function basketToParts(basket: Basket) {
-    return PART_KEYS.map((key) => ({
-      id: key,
-      name: CATALOGUE[key].name,
-      eta: basket.chosen[key].eta,
-      originalEta: basket.chosen[key].eta,
-    }));
-  }
-
   function applyBasket(basket: Basket, label: string) {
     sessionStorage.setItem(
       "partly:chosenBasket",
       JSON.stringify({
-        parts: basketToParts(basket),
+        parts: basketToTimelineParts(basket),
         label: `${label} — $${basket.cost}, ready ${fmt(basket.readyDate)}`,
       }),
     );
@@ -196,7 +71,7 @@ export default function ProcurementPage() {
       label,
       cost: basket.cost,
       readyDateISO: basket.readyDate.toISOString(),
-      parts: basketToParts(basket),
+      parts: basketToTimelineParts(basket),
     });
     sessionStorage.setItem(
       "partly:customerChoice",
@@ -226,7 +101,12 @@ export default function ProcurementPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-8 py-10">
-        <h1 className="text-2xl font-semibold text-slate-900">Procurement</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-slate-900">Procurement</h1>
+          <a href="/procurement/suppliers" className="text-sm font-medium text-blue-600 hover:underline">
+            View supplier detail →
+          </a>
+        </div>
         <p className="mt-1 text-slate-500">
           Constraints apply to the whole basket, not each part — the solver decides per part
           which supplier to use.
@@ -385,9 +265,9 @@ export default function ProcurementPage() {
                   )}
                 </div>
                 <p className="mt-3 text-xs text-slate-500">
-                  {PART_KEYS.map((k) => `${CATALOGUE[k].name}: ${basket.chosen[k].supplier}`).join(
-                    " · ",
-                  )}
+                  {PART_KEYS.map(
+                    (k) => `${CATALOGUE[k].name}: ${basket.chosen[k].company} (${basket.chosen[k].speed})`,
+                  ).join(" · ")}
                 </p>
                 <button
                   onClick={() => applyBasket(basket, label)}

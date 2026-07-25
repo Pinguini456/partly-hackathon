@@ -37,10 +37,13 @@ const applyDelay = <T extends { eta: string }>(part: T, parts: T[], days: number
 
 // No supplier delivers and no shop works a weekend — roll any customer-facing
 // date forward off Sat/Sun rather than doing naive calendar-day addition.
+// Uses UTC accessors throughout since ISO date-only strings parse as UTC
+// midnight; mixing that with local getDay()/setDate() shifts the apparent
+// weekday by a day in any timezone behind UTC.
 function nextWorkingDay(date: Date) {
   const d = new Date(date);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
   }
   return d;
 }
@@ -52,7 +55,7 @@ const LABOUR_DAYS = 2;
 type Part = { id: string; name: string; eta: string; originalEta: string };
 
 const initialParts: Part[] = [
-  { id: "headlamp", name: "Headlamp assembly", eta: "2026-08-02", originalEta: "2026-08-02" },
+  { id: "headlamp", name: "Headlamp assembly", eta: "2026-08-03", originalEta: "2026-08-03" },
   { id: "bumper", name: "Front bumper cover", eta: "2026-07-29", originalEta: "2026-07-29" },
   { id: "bracket", name: "Mounting bracket", eta: "2026-07-27", originalEta: "2026-07-27" },
 ];
@@ -66,7 +69,12 @@ const MANUAL_STAGES: { key: ManualStage; label: string; actionLabel: string }[] 
 ];
 
 function fmt(date: Date) {
-  return date.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "short" });
+  return date.toLocaleDateString("en-NZ", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 function decodePaintCode(plate: string) {
