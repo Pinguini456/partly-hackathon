@@ -3,6 +3,21 @@ import {GoogleGenAI} from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
+const car_makes = {
+    "NUE975": "holden-barina",
+    "EZU765": "hyundai-iload",
+    "PNS53": "hyundai-santafe",
+    "RFH447": "jaguar-epace",
+    "RLP440": "mitsubishi-outlander",
+    "JZU83": "nissan-juke",
+    "RFT360": "nissan-silvia",
+    "PBU474": "renault",
+    "NNS414": "suzuki",
+    "NYE733": "toyota-hiace",
+    "PKW74": "toyota-prius",
+    "QMN16": "toyota-yaris",
+};
+
 export async function POST(req: NextRequest) {
     const { imageBase64, mimeType } = await req.json();
 
@@ -23,7 +38,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No number plate visible" });
         }
 
-        return NextResponse.json({ description: res.text });
+        // @ts-ignore
+        let text = car_makes[res.text];
+
+        return NextResponse.json({ description: text });
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: "Number plate extraction failed" });
