@@ -10,182 +10,235 @@ import {
   FileText,
   CheckCircle,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+
+
+type Inspection = {
+  files: File[];
+  status: "uploaded" | "analysing" | "complete";
+  notes?: string;
+  vehicle?: string;
+  parts?: string[];
+};
+
 
 export default function Home() {
 
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<Inspection | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const [complete, setComplete] = useState(false);
 
 
-  const { 
-    getRootProps, 
-    getInputProps, 
-    isDragActive 
+
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive
+
   } = useDropzone({
 
-    accept:{
-      "video/*":[],
-      "image/*":[],
-      "audio/*":[]
+    accept: {
+      "video/*": [],
+      "image/*": [],
+      "audio/*": []
     },
 
 
-    onDrop: async (acceptedFiles)=>{
+    onDrop: (acceptedFiles) => {
 
-      setFiles(acceptedFiles);
+      const newInspection: Inspection = {
 
-      setUploading(true);
+        files: acceptedFiles,
 
+        status: "uploaded"
 
-      try {
-
-
-        // 1. Create inspection record
-
-        const {
-          data: inspection,
-          error: inspectionError
-
-        } = await supabase
-
-          .from("inspections")
-
-          .insert({
-            status:"uploaded"
-          })
-
-          .select()
-
-          .single();
+      };
 
 
+      setInspection(newInspection);
 
-        if(inspectionError){
-          throw inspectionError;
-        }
+      setComplete(false);
 
-        setInspectionId(inspection.id);
-
-        // 2. Upload files
-
-        for(const file of acceptedFiles){
-
-
-          const filePath =
-            `${inspection.id}/${file.name}`;
-
-
-
-          const {
-            error: uploadError
-
-          } = await supabase.storage
-
-            .from("inspection-files")
-
-            .upload(
-              filePath,
-              file
-            );
-
-
-
-          if(uploadError){
-            throw uploadError;
-          }
-
-
-
-          // 3. Save file information
-
-          await supabase
-
-            .from("inspection_files")
-
-            .insert({
-
-              inspection_id: inspection.id,
-
-              filename:file.name,
-
-              path:filePath
-
-            });
-
-
-        }
-
-
-        console.log(
-          "Upload complete",
-          inspection.id
-        );
-
-
-      }
-
-      catch(error){
-
-        console.error(
-          "Upload failed:",
-          error
-        );
-
-      }
-
-      finally{
-
-        setUploading(false);
-
-      }
     }
 
   });
 
+
+
+
+  async function analyseInspection() {
+
+    if (!inspection) return;
+
+
+    setAnalysing(true);
+
+
+
+    setInspection({
+
+      ...inspection,
+
+      status: "analysing"
+
+    });
+
+
+
+    // Placeholder for AI agents
+
+    await new Promise(
+      resolve => setTimeout(resolve, 4000)
+    );
+
+
+
+    setInspection({
+
+      ...inspection,
+
+      status: "complete",
+
+      vehicle:
+        "2022 Toyota Corolla GX",
+
+      notes:
+        "Technician noted damage to front bumper and left headlight.",
+
+      parts: [
+
+        "Front bumper",
+
+        "Left headlight",
+
+        "Bonnet"
+
+      ]
+
+    });
+
+
+
+    setAnalysing(false);
+
+    setComplete(true);
+
+  }
+
+
+
+
+
   return (
-    <main className="min-h-screen bg-slate-50">
+
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+
+
+      <header className="border-b bg-white">
+
+        <div className="mx-auto max-w-6xl px-8 py-6">
+
+
+          <h1 className="text-3xl font-semibold text-slate-900">
+
+            Repair Copilot
+
+          </h1>
+
+
+          <p className="mt-2 text-slate-600">
+
+            Convert vehicle inspections into repair orders.
+
+          </p>
+
+
+        </div>
+
+      </header>
+
+
+
 
 
       <div className="mx-auto max-w-6xl px-8 py-10">
 
 
+
         {/* Workflow */}
+
+
         <div className="mb-10 flex items-center gap-4">
 
-          <Step number="1" text="Upload" active />
 
-          <div className="h-px flex-1 bg-slate-200" />
+          <Step
+            number="1"
+            text="Upload"
+            active
+          />
 
-          <Step number="2" text="Analyse" />
 
-          <div className="h-px flex-1 bg-slate-200" />
+          <div className="h-px flex-1 bg-slate-200"/>
 
-          <Step number="3" text="Review" />
 
-          <div className="h-px flex-1 bg-slate-200" />
+          <Step
+            number="2"
+            text="Analyse"
+          />
 
-          <Step number="4" text="Repair Order" />
+
+          <div className="h-px flex-1 bg-slate-200"/>
+
+
+          <Step
+            number="3"
+            text="Review"
+          />
+
+
+          <div className="h-px flex-1 bg-slate-200"/>
+
+
+          <Step
+            number="4"
+            text="Repair Order"
+          />
+
 
         </div>
 
 
 
-        {/* Upload */}
+
+
+
+        {/* Upload box */}
+
+
         <div
+
           {...getRootProps()}
+
           className={`
-          rounded-xl border-2 border-dashed bg-white p-12
+          cursor-pointer
+          rounded-xl
+          border-2
+          border-dashed
+          bg-white
+          p-12
           transition
+
           ${
             isDragActive
-              ? "border-blue-500 bg-blue-50"
-              : "border-slate-300 hover:border-blue-400"
+            ?
+            "border-blue-600 bg-blue-50"
+            :
+            "border-slate-300 hover:border-blue-500"
           }
+
           `}
+
         >
+
 
           <input {...getInputProps()} />
 
@@ -194,64 +247,101 @@ export default function Home() {
 
 
             <div className="rounded-full bg-blue-100 p-5">
+
               <Upload className="h-8 w-8 text-blue-600"/>
+
             </div>
 
 
+
             <h2 className="mt-6 text-2xl font-semibold text-slate-900">
+
               Upload inspection files
+
             </h2>
 
 
-            <p className="mt-2 max-w-md text-slate-500">
-              Add your inspection video, photos, or voice notes.
-              Repair Copilot will prepare the repair details automatically.
+
+            <p className="mt-2 max-w-md text-slate-600">
+
+              Upload vehicle videos, photos, or technician voice notes.
+
+              Repair Copilot will prepare the repair information automatically.
+
             </p>
 
 
+
+
             <button
+
               type="button"
+
               className="
-              mt-6 rounded-lg
+              mt-6
+              rounded-lg
               bg-blue-600
-              px-8 py-3
+              px-8
+              py-3
               font-medium
               text-white
               hover:bg-blue-700
               "
+
             >
+
               Choose Files
+
             </button>
 
 
           </div>
 
+
         </div>
 
 
 
-        {/* Supported files */}
+
+
+
+
+        {/* File types */}
+
+
         <div className="mt-8 grid gap-4 md:grid-cols-3">
 
 
           <InfoCard
-            icon={<Video />}
+
+            icon={<Video/>}
+
             title="Inspection videos"
-            description="Walkaround vehicle inspections"
+
+            description="Vehicle walkaround recordings"
+
           />
 
 
           <InfoCard
-            icon={<Image />}
+
+            icon={<Image/>}
+
             title="Vehicle photos"
+
             description="Damage and component images"
+
           />
 
 
           <InfoCard
-            icon={<Mic />}
+
+            icon={<Mic/>}
+
             title="Voice notes"
-            description="Natural repair observations"
+
+            description="Natural technician observations"
+
           />
 
 
@@ -259,47 +349,80 @@ export default function Home() {
 
 
 
-        {/* Files */}
-        {files.length > 0 && (
 
-          <section className="mt-10 rounded-xl border bg-white p-8">
+
+
+
+
+        {/* Uploaded files */}
+
+
+
+        {inspection && (
+
+
+          <section className="mt-10 rounded-xl border bg-white p-8 shadow-sm">
+
 
             <h2 className="text-xl font-semibold text-slate-900">
-              Uploaded files
+
+              Uploaded inspection
+
             </h2>
+
 
 
             <div className="mt-5 space-y-3">
 
-              {files.map((file)=>(
+
+              {inspection.files.map((file)=>(
+
 
                 <div
+
                   key={file.name}
+
                   className="
-                  flex items-center justify-between
+                  flex
+                  items-center
+                  justify-between
                   rounded-lg
                   border
+                  border-slate-200
                   p-4
                   "
+
                 >
 
-                  <div className="flex items-center gap-4">
+
+                  <div className="flex items-center gap-3">
+
 
                     <FileText className="text-slate-400"/>
 
+
                     <div>
 
+
                       <p className="font-medium text-slate-900">
+
                         {file.name}
+
                       </p>
 
+
                       <p className="text-sm text-slate-500">
+
                         {(file.size / 1024 / 1024).toFixed(2)} MB
+
                       </p>
+
 
                     </div>
 
+
                   </div>
+
 
 
                   <CheckCircle className="text-green-500"/>
@@ -307,14 +430,22 @@ export default function Home() {
 
                 </div>
 
+
               ))}
+
 
             </div>
 
 
 
+
+
             <button
-              onClick={()=>setAnalysing(true)}
+
+              onClick={analyseInspection}
+
+              disabled={analysing}
+
               className="
               mt-8
               w-full
@@ -324,49 +455,215 @@ export default function Home() {
               font-semibold
               text-white
               hover:bg-blue-700
+              disabled:bg-blue-300
               "
+
             >
-              Analyse Inspection
+
+              {analysing
+                ?
+                "Analysing Inspection..."
+                :
+                "Analyse Inspection"
+              }
+
+
             </button>
 
 
           </section>
 
+
         )}
 
 
 
-        {/* Processing */}
+
+
+
+
+
+
+        {/* AI processing */}
+
+
+
         {analysing && (
 
-          <section className="mt-8 rounded-xl border bg-white p-8">
 
-            <h2 className="text-xl font-semibold">
+          <section className="mt-8 rounded-xl border bg-white p-8 shadow-sm">
+
+
+            <h2 className="text-xl font-semibold text-slate-900">
+
               Preparing repair summary
+
             </h2>
+
 
 
             <div className="mt-6 space-y-4">
 
-              <Process text="Uploading inspection files"/>
-              <Process text="Transcribing repair notes"/>
-              <Process text="Identifying vehicle details"/>
-              <Process text="Matching replacement parts"/>
-              <Process text="Finding supplier options"/>
+
+              <Process text="Transcribing technician notes"/>
+
+              <Process text="Identifying vehicle configuration"/>
+
+              <Process text="Matching OEM replacement parts"/>
+
+              <Process text="Comparing supplier options"/>
+
 
             </div>
 
 
           </section>
 
+
         )}
+
+
+
+
+
+
+
+
+        {/* Results */}
+
+
+
+        {complete && inspection && (
+
+
+          <section className="mt-8 rounded-xl border bg-white p-8 shadow-sm">
+
+
+            <h2 className="text-2xl font-semibold text-slate-900">
+
+              Repair Summary
+
+            </h2>
+
+
+
+            <div className="mt-6 space-y-4">
+
+
+              <div>
+
+                <p className="text-sm text-slate-500">
+
+                  Vehicle
+
+                </p>
+
+
+                <p className="font-medium text-slate-900">
+
+                  {inspection.vehicle}
+
+                </p>
+
+              </div>
+
+
+
+
+              <div>
+
+                <p className="text-sm text-slate-500">
+
+                  Notes
+
+                </p>
+
+
+                <p className="text-slate-700">
+
+                  {inspection.notes}
+
+                </p>
+
+              </div>
+
+
+
+
+
+              <div>
+
+                <p className="text-sm text-slate-500">
+
+                  Required Parts
+
+                </p>
+
+
+                <ul className="mt-2 list-disc pl-6 text-slate-700">
+
+
+                  {inspection.parts?.map(part=>(
+
+                    <li key={part}>
+
+                      {part}
+
+                    </li>
+
+                  ))}
+
+
+                </ul>
+
+
+              </div>
+
+
+
+            </div>
+
+
+
+
+            <button
+
+              className="
+              mt-8
+              rounded-lg
+              bg-blue-600
+              px-8
+              py-3
+              font-semibold
+              text-white
+              hover:bg-blue-700
+              "
+
+            >
+
+              Generate Repair Order
+
+            </button>
+
+
+          </section>
+
+
+        )}
+
 
 
       </div>
 
+
     </main>
+
   );
+
 }
+
+
+
 
 
 
@@ -378,87 +675,134 @@ function Step({
   number:string;
   text:string;
   active?:boolean;
-}){
+}) {
 
-return (
 
-<div className="flex items-center gap-2">
+  return (
 
-<div
-className={`
-flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium
-${
-active
-? "bg-blue-600 text-white"
-: "bg-slate-200 text-slate-600"
+    <div className="flex items-center gap-2">
+
+
+      <div
+
+        className={`
+        flex
+        h-8
+        w-8
+        items-center
+        justify-center
+        rounded-full
+        text-sm
+        font-medium
+
+        ${
+          active
+          ?
+          "bg-blue-600 text-white"
+          :
+          "bg-slate-200 text-slate-700"
+        }
+
+        `}
+
+      >
+
+        {number}
+
+      </div>
+
+
+      <span className="text-sm text-slate-700">
+
+        {text}
+
+      </span>
+
+
+    </div>
+
+  );
+
 }
-`}
->
-{number}
-</div>
 
-<span className="text-sm text-slate-700">
-{text}
-</span>
 
-</div>
 
-)
 
-}
 
 
 
 function InfoCard({
-icon,
-title,
-description
+  icon,
+  title,
+  description
 }:{
-icon:React.ReactNode;
-title:string;
-description:string;
-}){
+  icon:React.ReactNode;
+  title:string;
+  description:string;
+}) {
 
-return (
 
-<div className="rounded-xl border bg-white p-6">
+  return (
 
-<div className="mb-4 w-fit rounded-lg bg-blue-100 p-3 text-blue-600">
-{icon}
-</div>
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
 
-<h3 className="font-semibold text-slate-900">
-{title}
-</h3>
 
-<p className="mt-1 text-sm text-slate-500">
-{description}
-</p>
+      <div className="mb-4 w-fit rounded-lg bg-blue-100 p-3 text-blue-600">
 
-</div>
+        {icon}
 
-)
+      </div>
+
+
+      <h3 className="font-semibold text-slate-900">
+
+        {title}
+
+      </h3>
+
+
+      <p className="mt-1 text-sm text-slate-600">
+
+        {description}
+
+      </p>
+
+
+    </div>
+
+  );
 
 }
 
 
-``
+
+
+
+
 function Process({
-text
+  text
 }:{
-text:string
-}){
+  text:string;
+}) {
 
-return (
 
-<div className="flex items-center gap-3 text-slate-700">
+  return (
 
-<div className="h-2 w-2 animate-pulse rounded-full bg-blue-600"/>
+    <div className="flex items-center gap-3 text-slate-700">
 
-{text}
 
-</div>
+      <div className="h-2 w-2 animate-pulse rounded-full bg-blue-600"/>
 
-)
+
+      <span>
+
+        {text}
+
+      </span>
+
+
+    </div>
+
+  );
 
 }
