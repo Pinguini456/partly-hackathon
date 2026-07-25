@@ -10,20 +10,139 @@ import {
   FileText,
   CheckCircle,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+
   const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      "video/*": [],
-      "image/*": [],
-      "audio/*": [],
+
+  const { 
+    getRootProps, 
+    getInputProps, 
+    isDragActive 
+  } = useDropzone({
+
+    accept:{
+      "video/*":[],
+      "image/*":[],
+      "audio/*":[]
     },
-    onDrop: (acceptedFiles) => {
-      setFiles((prev) => [...prev, ...acceptedFiles]);
-    },
+
+
+    onDrop: async (acceptedFiles)=>{
+
+      setFiles(acceptedFiles);
+
+      setUploading(true);
+
+
+      try {
+
+
+        // 1. Create inspection record
+
+        const {
+          data: inspection,
+          error: inspectionError
+
+        } = await supabase
+
+          .from("inspections")
+
+          .insert({
+            status:"uploaded"
+          })
+
+          .select()
+
+          .single();
+
+
+
+        if(inspectionError){
+          throw inspectionError;
+        }
+
+        setInspectionId(inspection.id);
+
+        // 2. Upload files
+
+        for(const file of acceptedFiles){
+
+
+          const filePath =
+            `${inspection.id}/${file.name}`;
+
+
+
+          const {
+            error: uploadError
+
+          } = await supabase.storage
+
+            .from("inspection-files")
+
+            .upload(
+              filePath,
+              file
+            );
+
+
+
+          if(uploadError){
+            throw uploadError;
+          }
+
+
+
+          // 3. Save file information
+
+          await supabase
+
+            .from("inspection_files")
+
+            .insert({
+
+              inspection_id: inspection.id,
+
+              filename:file.name,
+
+              path:filePath
+
+            });
+
+
+        }
+
+
+        console.log(
+          "Upload complete",
+          inspection.id
+        );
+
+
+      }
+
+      catch(error){
+
+        console.error(
+          "Upload failed:",
+          error
+        );
+
+      }
+
+      finally{
+
+        setUploading(false);
+
+      }
+    }
+
   });
 
   return (
@@ -323,7 +442,7 @@ return (
 }
 
 
-
+``
 function Process({
 text
 }:{
