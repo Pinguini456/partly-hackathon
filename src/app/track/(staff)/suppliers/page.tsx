@@ -7,10 +7,9 @@ import {
   CATALOGUE,
   PART_KEYS,
   PartKey,
+  PartEntry,
   SupplierOption,
-  Hotspot,
   VEHICLE,
-  NEIGHBOUR_HOTSPOTS,
   UNCONFIRMED_PARTS,
   recommendedBasket,
   readyDateOf,
@@ -27,33 +26,20 @@ function pct(n: number, total: number) {
   return `${(n / total) * 100}%`;
 }
 
-function DiagramPane({ hotspot }: { hotspot: Hotspot }) {
+/* eslint-disable @next/next/no-img-element -- these are served out of the
+   partly-api dataset by a route handler, not static/optimisable assets */
+
+function DiagramPane({ part }: { part: PartEntry }) {
   const { diagramWidth: W, diagramHeight: H } = VEHICLE;
+  const { hotspot } = part;
 
   return (
     <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
-      {/* eslint-disable-next-line @next/next/no-img-element -- served from the
-          partly-api dataset via a route handler, not a static/optimisable asset */}
       <img
-        src={`/api/diagram?vehicle=${VEHICLE.slug}&diagram=${VEHICLE.diagramId}`}
-        alt={`OEM diagram, callout ${hotspot.code}`}
+        src={`/api/diagram?diagram=${part.diagramId}`}
+        alt={`OEM diagram ${part.diagramName}, callout ${hotspot.code}`}
         className="block w-full"
       />
-
-      {NEIGHBOUR_HOTSPOTS.map(({ label, hotspot: n }) => (
-        <div
-          key={n.code}
-          title={label}
-          className="absolute rounded-sm border border-slate-400/70"
-          style={{
-            left: pct(n.x1, W),
-            top: pct(n.y1, H),
-            width: pct(n.x2 - n.x1, W),
-            height: pct(n.y2 - n.y1, H),
-          }}
-        />
-      ))}
-
       <div
         className="absolute rounded-sm border-2 border-indigo-500 bg-indigo-500/15 ring-2 ring-indigo-500/30"
         style={{
@@ -63,10 +49,30 @@ function DiagramPane({ hotspot }: { hotspot: Hotspot }) {
           height: pct(hotspot.y2 - hotspot.y1, H),
         }}
       />
-
       <span className="absolute bottom-2 right-2 rounded bg-white/90 px-2 py-1 text-[10px] font-medium text-slate-500">
-        Real OEM diagram · {VEHICLE.label}
+        {part.diagramName} · {VEHICLE.label}
       </span>
+    </div>
+  );
+}
+
+function DamageFrames({ frames }: { frames: string[] }) {
+  if (!frames.length) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        Walkaround frames the model cited
+      </p>
+      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+        {frames.map((f) => (
+          <img
+            key={f}
+            src={`/api/diagram?frame=${f}`}
+            alt={`Damage frame ${f}`}
+            className="h-20 w-auto shrink-0 rounded-md border border-slate-200 object-cover"
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -222,9 +228,9 @@ export default function SupplierDrilldownPage() {
             })}
 
             {UNCONFIRMED_PARTS.map((p) => (
-              <div key={p.name} className="rounded-lg px-3 py-2.5">
+              <div key={p.name} className="rounded-lg px-3 py-2.5" title={p.reason}>
                 <p className="text-sm font-medium text-slate-900">{p.name}</p>
-                <p className="text-xs text-amber-600">Unconfirmed · ${p.estimate}</p>
+                <p className="text-xs text-amber-600">Unconfirmed · {p.reason}</p>
               </div>
             ))}
           </div>
@@ -232,23 +238,33 @@ export default function SupplierDrilldownPage() {
 
         {/* Right pane — selected part detail */}
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">{part.name}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-900">{part.name}</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium capitalize text-slate-600">
+              {part.predicted.severity} · {part.predicted.action}
+            </span>
+          </div>
           <p className="text-sm text-slate-500">
-            {part.partNumber} · callout {part.hotspot.code} ·{" "}
+            callout {part.hotspot.code} ·{" "}
             {isGating ? (
               <span className="text-amber-600">gating, no slack</span>
             ) : (
               <span className="text-green-600">{slackDays}d slack</span>
             )}
           </p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 font-mono text-[11px] text-slate-400">{part.mpn}</p>
+          <p className="mt-1 text-xs text-slate-400">
             {isGating
               ? "Every day here is a day on the car."
               : `Anything landing before ${fmt(new Date(othersGatingEta))} is equally good.`}
           </p>
 
           <div className="mt-4">
-            <DiagramPane hotspot={part.hotspot} />
+            <DiagramPane part={part} />
+          </div>
+
+          <div className="mt-4">
+            <DamageFrames frames={part.frames} />
           </div>
 
           <div className="mt-5 divide-y divide-slate-100">

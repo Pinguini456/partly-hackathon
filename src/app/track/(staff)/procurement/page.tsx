@@ -14,12 +14,14 @@ import {
   basketToTimelineParts,
   fmt,
   daysBetween,
+  DEFAULT_BUDGET,
+  DEFAULT_TARGET,
 } from "@/src/lib/procurement";
 
 export default function ProcurementPage() {
   const router = useRouter();
-  const [targetDate, setTargetDate] = useState("2026-08-04");
-  const [budget, setBudget] = useState(850);
+  const [targetDate, setTargetDate] = useState(DEFAULT_TARGET);
+  const [budget, setBudget] = useState(DEFAULT_BUDGET);
   const [manualOemOnly, setManualOemOnly] = useState(false);
   const [jobType, setJobType] = useState<"private" | "insurance">("private");
 

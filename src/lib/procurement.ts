@@ -48,31 +48,19 @@ export function daysBetween(a: Date, b: Date) {
 
 export const LABOUR_DAYS = 2;
 
-// --- The real vehicle + diagram these parts come from ---------------------
+// --- The real vehicle these parts come from -------------------------------
 
 export const VEHICLE = {
   slug: "toyota-yaris-qmn16",
   label: "Toyota Yaris 2023",
   plate: "MKJ482",
-  diagramId: "fa9e2586-4cf1-55ab-b122-5c18857aa1ad",
+  // Every diagram in this dataset is 1592x1099 at scale 1.0, so hotspot pixel
+  // coords map straight onto the rendered image.
   diagramWidth: 1592,
   diagramHeight: 1099,
 };
 
 export type Hotspot = { x1: number; y1: number; x2: number; y2: number; code: string };
-
-// Other real callouts on the same diagram — rendered unhighlighted so the
-// repairer can spot adjacent hardware they also need.
-export const NEIGHBOUR_HOTSPOTS: { label: string; hotspot: Hotspot }[] = [
-  {
-    label: "Headlamp Bracket No.1 - Left",
-    hotspot: { x1: 661, y1: 797, x2: 728, y2: 818, code: "53234A" },
-  },
-  {
-    label: "Front Bumper Lower Arm - Left",
-    hotspot: { x1: 478, y1: 420, x2: 545, y2: 441, code: "52144M" },
-  },
-];
 
 export type Speed = "ground" | "standard" | "express" | "air";
 
@@ -92,70 +80,44 @@ export type SupplierOption = {
   returnRate?: number;
 };
 
-export type PartKey = "bumperArm" | "headlampBracket" | "fenderExtension";
+export type PartKey = "bumperCover" | "headlampAssembly" | "reinforcementBar";
 
-export const CATALOGUE: Record<
-  PartKey,
-  { name: string; partNumber: string; hotspot: Hotspot; options: SupplierOption[] }
-> = {
-  bumperArm: {
-    name: "Front Bumper Lower Arm - Right",
-    partNumber: "52143K",
-    hotspot: { x1: 304, y1: 321, x2: 371, y2: 342, code: "52143K" },
-    options: [
-      {
-        company: "BNT Auckland",
-        oem: true,
-        speed: "ground",
-        price: 160,
-        promisedEta: "2026-08-03",
-        eta: "2026-08-03",
-        onTimeRate: 0.96,
-        orderCount: 340,
-      },
-      {
-        company: "BNT Auckland",
-        oem: true,
-        speed: "express",
-        price: 210,
-        promisedEta: "2026-07-30",
-        eta: "2026-07-31",
-        onTimeRate: 0.96,
-        orderCount: 340,
-      },
-      {
-        company: "Kiwi Panel Supply",
-        oem: true,
-        speed: "ground",
-        price: 140,
-        promisedEta: "2026-07-31",
-        eta: "2026-08-05",
-        onTimeRate: 0.68,
-        orderCount: 95,
-      },
-      {
-        company: "Whangarei Auto",
-        oem: false,
-        speed: "ground",
-        price: 98,
-        promisedEta: "2026-08-05",
-        eta: "2026-08-06",
-        onTimeRate: 0.91,
-        orderCount: 210,
-        returnRate: 0.04,
-      },
-    ],
-  },
-  headlampBracket: {
-    name: "Headlamp Bracket No.1 - Right",
-    partNumber: "53233A",
-    hotspot: { x1: 323, y1: 583, x2: 390, y2: 604, code: "53233A" },
+export type PartEntry = {
+  /** OEM description, real. */
+  name: string;
+  /** Manufacturer part number, real (tokenised in this dataset). */
+  mpn: string;
+  /** Diagram this part is called out on, real. */
+  diagramId: string;
+  diagramName: string;
+  hotspot: Hotspot;
+  /** What the damage model said, real: raw name, action, severity, confidence. */
+  predicted: { rawName: string; action: string; severity: string; confidence: string };
+  /** Walkaround frames the damage model cited for this part, real. */
+  frames: string[];
+  options: SupplierOption[];
+};
+
+export const CATALOGUE: Record<PartKey, PartEntry> = {
+  headlampAssembly: {
+    name: "Headlamp Assembly - Right",
+    mpn: "R0FV7PSWS0:80ZE3V3VAMNR2VE0",
+    diagramId: "d256bb33-5c7b-5213-9f5f-24b6022b599d",
+    diagramName: "Headlamp",
+    hotspot: { x1: 702, y1: 958, x2: 802, y2: 980, code: "81110" },
+    predicted: {
+      rawName: "Right Front Headlamp Assembly",
+      action: "replacement",
+      severity: "severe",
+      confidence: "high",
+    },
+    frames: ["01_0001.jpg", "05_0033.jpg", "04_0025.jpg", "02_0004.jpg"],
     options: [
       {
         company: "Southern Parts Co",
         oem: true,
         speed: "ground",
-        price: 300,
+        price: 520,
         promisedEta: "2026-07-29",
         eta: "2026-07-31",
         onTimeRate: 0.94,
@@ -165,34 +127,101 @@ export const CATALOGUE: Record<
         company: "Southern Parts Co",
         oem: true,
         speed: "express",
-        price: 460,
+        price: 680,
         promisedEta: "2026-07-28",
         eta: "2026-07-29",
         onTimeRate: 0.97,
         orderCount: 512,
       },
       {
-        company: "Southern Parts Co",
-        oem: true,
-        speed: "air",
-        price: 560,
+        company: "Whangarei Auto",
+        oem: false,
+        speed: "ground",
+        price: 310,
         promisedEta: "2026-07-27",
         eta: "2026-07-28",
-        onTimeRate: 0.98,
-        orderCount: 512,
+        onTimeRate: 0.9,
+        orderCount: 210,
+        returnRate: 0.04,
       },
     ],
   },
-  fenderExtension: {
-    name: "Front Fender Extension - Right",
-    partNumber: "53813C",
-    hotspot: { x1: 931, y1: 185, x2: 998, y2: 206, code: "53813C" },
+  bumperCover: {
+    name: "Front Bumper Cover",
+    mpn: "R0FV7PSWS0:9MYY3VKJ5DC8GTP2",
+    diagramId: "fa22e079-dfd4-525b-b965-26fe51fb21e8",
+    diagramName: "Front Bumper and Bumper Stay",
+    hotspot: { x1: 1038, y1: 608, x2: 1105, y2: 629, code: "52119A" },
+    predicted: {
+      rawName: "Front Bumper Cover",
+      action: "replacement",
+      severity: "severe",
+      confidence: "high",
+    },
+    frames: ["01_0001.jpg", "02_0004.jpg", "03_0020.jpg"],
     options: [
       {
         company: "BNT Auckland",
         oem: true,
         speed: "ground",
-        price: 110,
+        price: 340,
+        promisedEta: "2026-08-03",
+        eta: "2026-08-03",
+        onTimeRate: 0.96,
+        orderCount: 340,
+      },
+      {
+        company: "BNT Auckland",
+        oem: true,
+        speed: "express",
+        price: 410,
+        promisedEta: "2026-07-30",
+        eta: "2026-07-31",
+        onTimeRate: 0.96,
+        orderCount: 340,
+      },
+      {
+        company: "Kiwi Panel Supply",
+        oem: true,
+        speed: "ground",
+        price: 315,
+        promisedEta: "2026-07-31",
+        eta: "2026-08-05",
+        onTimeRate: 0.68,
+        orderCount: 95,
+      },
+      {
+        company: "Whangarei Auto",
+        oem: false,
+        speed: "ground",
+        price: 240,
+        promisedEta: "2026-08-05",
+        eta: "2026-08-06",
+        onTimeRate: 0.91,
+        orderCount: 210,
+        returnRate: 0.04,
+      },
+    ],
+  },
+  reinforcementBar: {
+    name: "Front Bumper Reinforcement",
+    mpn: "R0FV7PSWS0:9MYY3V3T5CMR4VY0",
+    diagramId: "6b62c100-0b70-5864-83c0-f8cccee1f3e5",
+    diagramName: "Front Bumper and Bumper Stay",
+    hotspot: { x1: 1286, y1: 462, x2: 1353, y2: 483, code: "52131A" },
+    predicted: {
+      rawName: "Front Bumper Reinforcement Bar",
+      action: "replacement",
+      severity: "moderate",
+      confidence: "high",
+    },
+    frames: ["01_0001.jpg", "04_0025.jpg"],
+    options: [
+      {
+        company: "BNT Auckland",
+        oem: true,
+        speed: "ground",
+        price: 185,
         promisedEta: "2026-07-29",
         eta: "2026-07-30",
         onTimeRate: 0.96,
@@ -202,7 +231,7 @@ export const CATALOGUE: Record<
         company: "North Shore Toyota",
         oem: true,
         speed: "standard",
-        price: 130,
+        price: 220,
         promisedEta: "2026-07-28",
         eta: "2026-07-28",
         onTimeRate: 0.97,
@@ -212,7 +241,7 @@ export const CATALOGUE: Record<
         company: "Whangarei Auto",
         oem: false,
         speed: "ground",
-        price: 85,
+        price: 140,
         promisedEta: "2026-07-27",
         eta: "2026-07-28",
         onTimeRate: 0.9,
@@ -225,11 +254,21 @@ export const CATALOGUE: Record<
 
 export const PART_KEYS = Object.keys(CATALOGUE) as PartKey[];
 
-// Vision-only find from the walkaround that hasn't been confirmed against the
-// catalogue yet — surfaced as a decision rather than silently ordered.
+// Real low-confidence prediction the damage model flagged but couldn't tie to
+// a frame, and which the catalogue marks is_orderable=false — carried through
+// as a decision rather than silently ordered.
 export const UNCONFIRMED_PARTS = [
-  { name: "Washer nozzle", note: "Seen in walkaround, not confirmed", estimate: 12 },
+  {
+    name: "Pin Hold Clip",
+    predictedAs: "Front Bumper Clip",
+    mpn: "R0FV7PSWS0:9GWEFTVJ5MM82V60",
+    reason: "Low match confidence, not orderable in catalogue",
+  },
 ];
+
+/** Default budget/target for the demo job, in the units the catalogue uses. */
+export const DEFAULT_BUDGET = 1200;
+export const DEFAULT_TARGET = "2026-08-03";
 
 export type Basket = {
   chosen: Record<PartKey, SupplierOption>;
@@ -318,10 +357,10 @@ export function basketToTimelineParts(basket: Basket) {
 }
 
 /** The solver's recommended basket — the starting point on both screens. */
-export function recommendedBasket(oemOnly = false, groundOnly = false, budget = 850) {
+export function recommendedBasket(oemOnly = false, groundOnly = false, budget = DEFAULT_BUDGET) {
   return pickBestValue(
     paretoFrontier(buildBaskets(oemOnly, groundOnly)),
     budget,
-    new Date("2026-08-04"),
+    new Date(DEFAULT_TARGET),
   );
 }
