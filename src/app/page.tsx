@@ -84,39 +84,53 @@ export default function Home() {
 
 
 
-    // Placeholder for AI agents
+    const formData = new FormData();
+    inspection.files.forEach((file) => formData.append("files", file));
 
-    await new Promise(
-      resolve => setTimeout(resolve, 4000)
-    );
+    try {
+      const response = await fetch("/api/main", {
+        method: "POST",
+        body: formData,
+      });
 
+      const data = await response.json();
 
+      if (!response.ok) {
+        console.error("API error", data);
+        setInspection({
+          ...inspection,
+          status: "complete",
+          vehicle: "Vehicle lookup failed",
+          notes: "Unable to identify vehicle from uploaded images.",
+          parts: [],
+        });
+      } else {
+        const notes = data.transcripts?.length
+          ? data.transcripts
+              .map((item: { fileName: string; text?: string; error?: string }) =>
+                item.text ? `${item.fileName}: ${item.text}` : `${item.fileName}: ${item.error}`
+              )
+              .join("\n")
+          : "No transcript available.";
 
-    setInspection({
-
-      ...inspection,
-
-      status: "complete",
-
-      vehicle:
-        "2022 Toyota Corolla GX",
-
-      notes:
-        "Technician noted damage to front bumper and left headlight.",
-
-      parts: [
-
-        "Front bumper",
-
-        "Left headlight",
-
-        "Bonnet"
-
-      ]
-
-    });
-
-
+        setInspection({
+          ...inspection,
+          status: "complete",
+          vehicle: data.vehicle ?? "Unknown vehicle",
+          notes,
+          parts: ["Front bumper", "Left headlight", "Bonnet"],
+        });
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      setInspection({
+        ...inspection,
+        status: "complete",
+        vehicle: "Vehicle lookup failed",
+        notes: "Upload failed. Please try again.",
+        parts: [],
+      });
+    }
 
     setAnalysing(false);
 
@@ -230,9 +244,9 @@ export default function Home() {
           ${
             isDragActive
             ?
-            "border-blue-600 bg-blue-50"
+            "border-indigo-600 bg-indigo-50"
             :
-            "border-slate-300 hover:border-blue-500"
+            "border-slate-300 hover:border-indigo-500"
           }
 
           `}
@@ -246,9 +260,9 @@ export default function Home() {
           <div className="flex flex-col items-center text-center">
 
 
-            <div className="rounded-full bg-blue-100 p-5">
+            <div className="rounded-full bg-indigo-100 p-5">
 
-              <Upload className="h-8 w-8 text-blue-600"/>
+              <Upload className="h-8 w-8 text-indigo-600"/>
 
             </div>
 
@@ -280,12 +294,12 @@ export default function Home() {
               className="
               mt-6
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               px-8
               py-3
               font-medium
               text-white
-              hover:bg-blue-700
+              hover:bg-indigo-700
               "
 
             >
@@ -450,12 +464,12 @@ export default function Home() {
               mt-8
               w-full
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               py-4
               font-semibold
               text-white
-              hover:bg-blue-700
-              disabled:bg-blue-300
+              hover:bg-indigo-700
+              disabled:bg-indigo-300
               "
 
             >
@@ -631,12 +645,12 @@ export default function Home() {
               className="
               mt-8
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               px-8
               py-3
               font-semibold
               text-white
-              hover:bg-blue-700
+              hover:bg-indigo-700
               "
 
             >
@@ -698,7 +712,7 @@ function Step({
         ${
           active
           ?
-          "bg-blue-600 text-white"
+          "bg-indigo-600 text-white"
           :
           "bg-slate-200 text-slate-700"
         }
@@ -747,7 +761,7 @@ function InfoCard({
     <div className="rounded-xl border bg-white p-6 shadow-sm">
 
 
-      <div className="mb-4 w-fit rounded-lg bg-blue-100 p-3 text-blue-600">
+      <div className="mb-4 w-fit rounded-lg bg-indigo-100 p-3 text-indigo-600">
 
         {icon}
 
@@ -791,7 +805,7 @@ function Process({
     <div className="flex items-center gap-3 text-slate-700">
 
 
-      <div className="h-2 w-2 animate-pulse rounded-full bg-blue-600"/>
+      <div className="h-2 w-2 animate-pulse rounded-full bg-indigo-600"/>
 
 
       <span>
