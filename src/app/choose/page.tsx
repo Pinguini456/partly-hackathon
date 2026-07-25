@@ -53,7 +53,7 @@ export default function ChooseBasketPage() {
       }),
     );
     sessionStorage.removeItem("partly:customerChoice");
-    router.push("/timeline");
+    router.push("/track");
   }
 
   if (missing) {
@@ -89,9 +89,9 @@ export default function ChooseBasketPage() {
         <div className="mt-8 space-y-4">
           <button
             onClick={() => choose(recommended)}
-            className="block w-full rounded-xl border-2 border-blue-500 bg-blue-50 p-6 text-left hover:bg-blue-100"
+            className="block w-full rounded-xl border-2 border-indigo-500 bg-indigo-50 p-6 text-left hover:bg-indigo-100"
           >
-            <span className="inline-block rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">
+            <span className="inline-block rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
               This is what we&apos;d pick
             </span>
             <p className="mt-3 text-3xl font-bold text-slate-900">${recommended.cost}</p>
@@ -100,7 +100,7 @@ export default function ChooseBasketPage() {
 
           <button
             onClick={() => choose(alternative)}
-            className="block w-full rounded-xl border bg-white p-6 text-left hover:bg-slate-50"
+            className="block w-full rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-shadow hover:shadow-md"
           >
             <p className="text-3xl font-bold text-slate-900">${alternative.cost}</p>
             <p className="text-slate-600">Ready {fmt(alternative.readyDateISO)}</p>

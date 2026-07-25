@@ -63,7 +63,7 @@ export default function ProcurementPage() {
         label: `${label} — $${basket.cost}, ready ${fmt(basket.readyDate)}`,
       }),
     );
-    router.push("/timeline");
+    router.push("/track");
   }
 
   function sendToCustomer() {
@@ -80,7 +80,7 @@ export default function ProcurementPage() {
         alternative: option(cheapest, "Cheapest"),
       }),
     );
-    router.push("/procurement/choose");
+    router.push("/choose");
   }
 
   const rawPresets = [
@@ -103,7 +103,7 @@ export default function ProcurementPage() {
       <div className="mx-auto max-w-5xl px-8 py-10">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-slate-900">Procurement</h1>
-          <a href="/procurement/suppliers" className="text-sm font-medium text-blue-600 hover:underline">
+          <a href="/track/suppliers" className="text-sm font-medium text-indigo-600 hover:underline">
             View supplier detail →
           </a>
         </div>
@@ -112,7 +112,7 @@ export default function ProcurementPage() {
           which supplier to use.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border bg-white p-4 text-sm">
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
           <span className="text-slate-500">Out by</span>
           <input
             type="date"
@@ -173,14 +173,14 @@ export default function ProcurementPage() {
         </p>
 
         {jobType === "private" ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-slate-600">
               Send {fmt(bestValue.readyDate)} at ${bestValue.cost}, or {fmt(cheapest.readyDate)} at $
               {cheapest.cost}, to the customer to choose.
             </p>
             <button
               onClick={sendToCustomer}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
               Send to customer to choose
             </button>
@@ -238,11 +238,11 @@ export default function ProcurementPage() {
               <div
                 key={key}
                 className={`rounded-xl border bg-white p-5 ${
-                  highlight ? "border-blue-400 ring-1 ring-blue-200" : "border-slate-200"
+                  highlight ? "border-indigo-400 ring-1 ring-indigo-200" : "border-slate-200"
                 }`}
               >
                 {highlight ? (
-                  <span className="mb-2 inline-block rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">
+                  <span className="mb-2 inline-block rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
                     Best value
                   </span>
                 ) : (

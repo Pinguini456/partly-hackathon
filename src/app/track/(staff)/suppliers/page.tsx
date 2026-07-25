@@ -51,7 +51,7 @@ export default function SupplierDrilldownPage() {
         label: `Supplier picks — $${totalCost}, ready ${fmt(currentReadyDate)}`,
       }),
     );
-    router.push("/timeline");
+    router.push("/track");
   }
 
   return (
@@ -64,7 +64,7 @@ export default function SupplierDrilldownPage() {
           arriving earlier — a part with slack doesn&apos;t get the car home sooner.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 text-sm">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
           <div className="flex items-center gap-1 rounded-md border p-1">
             {(
               [
@@ -139,7 +139,7 @@ export default function SupplierDrilldownPage() {
             const sorted = [chosenRow, ...rest];
 
             return (
-              <div key={partKey} className="rounded-xl border bg-white p-5">
+              <div key={partKey} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">{part.name}</h2>
@@ -189,7 +189,7 @@ export default function SupplierDrilldownPage() {
                             : noBenefit
                               ? "opacity-50 hover:opacity-80"
                               : "hover:bg-slate-50"
-                        } ${isChosen ? "bg-blue-50" : ""}`}
+                        } ${isChosen ? "bg-indigo-50" : ""}`}
                       >
                         <div>
                           <p className="text-sm font-medium text-slate-900">
@@ -204,7 +204,7 @@ export default function SupplierDrilldownPage() {
                           <p className="text-sm font-semibold text-slate-900">${option.price}</p>
                           <p
                             className={`text-xs ${
-                              isChosen ? "font-medium text-blue-600" : blocked ? "text-slate-400" : "text-slate-500"
+                              isChosen ? "font-medium text-indigo-600" : blocked ? "text-slate-400" : "text-slate-500"
                             }`}
                           >
                             {description}
@@ -219,14 +219,14 @@ export default function SupplierDrilldownPage() {
           })}
         </div>
 
-        <div className="mt-6 flex items-center justify-between rounded-xl border bg-white p-4">
+        <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div>
             <p className="text-lg font-bold text-slate-900">${totalCost}</p>
             <p className="text-sm text-slate-600">Ready {fmt(currentReadyDate)}</p>
           </div>
           <button
             onClick={applyBasket}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             Apply this basket
           </button>

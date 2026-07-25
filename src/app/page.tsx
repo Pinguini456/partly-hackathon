@@ -244,9 +244,9 @@ export default function Home() {
           ${
             isDragActive
             ?
-            "border-blue-600 bg-blue-50"
+            "border-indigo-600 bg-indigo-50"
             :
-            "border-slate-300 hover:border-blue-500"
+            "border-slate-300 hover:border-indigo-500"
           }
 
           `}
@@ -260,9 +260,9 @@ export default function Home() {
           <div className="flex flex-col items-center text-center">
 
 
-            <div className="rounded-full bg-blue-100 p-5">
+            <div className="rounded-full bg-indigo-100 p-5">
 
-              <Upload className="h-8 w-8 text-blue-600"/>
+              <Upload className="h-8 w-8 text-indigo-600"/>
 
             </div>
 
@@ -294,12 +294,12 @@ export default function Home() {
               className="
               mt-6
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               px-8
               py-3
               font-medium
               text-white
-              hover:bg-blue-700
+              hover:bg-indigo-700
               "
 
             >
@@ -464,12 +464,12 @@ export default function Home() {
               mt-8
               w-full
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               py-4
               font-semibold
               text-white
-              hover:bg-blue-700
-              disabled:bg-blue-300
+              hover:bg-indigo-700
+              disabled:bg-indigo-300
               "
 
             >
@@ -645,12 +645,12 @@ export default function Home() {
               className="
               mt-8
               rounded-lg
-              bg-blue-600
+              bg-indigo-600
               px-8
               py-3
               font-semibold
               text-white
-              hover:bg-blue-700
+              hover:bg-indigo-700
               "
 
             >
@@ -712,7 +712,7 @@ function Step({
         ${
           active
           ?
-          "bg-blue-600 text-white"
+          "bg-indigo-600 text-white"
           :
           "bg-slate-200 text-slate-700"
         }
@@ -761,7 +761,7 @@ function InfoCard({
     <div className="rounded-xl border bg-white p-6 shadow-sm">
 
 
-      <div className="mb-4 w-fit rounded-lg bg-blue-100 p-3 text-blue-600">
+      <div className="mb-4 w-fit rounded-lg bg-indigo-100 p-3 text-indigo-600">
 
         {icon}
 
@@ -805,7 +805,7 @@ function Process({
     <div className="flex items-center gap-3 text-slate-700">
 
 
-      <div className="h-2 w-2 animate-pulse rounded-full bg-blue-600"/>
+      <div className="h-2 w-2 animate-pulse rounded-full bg-indigo-600"/>
 
 
       <span>
