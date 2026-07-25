@@ -12,6 +12,7 @@ import {
   Paintbrush,
   Clock,
 } from "lucide-react";
+import { basketToTimelineParts, recommendedBasket, VEHICLE } from "@/src/lib/procurement";
 
 // --- Gating-part scheduling logic -------------------------------------
 
@@ -55,11 +56,10 @@ const LABOUR_DAYS = 2;
 
 type Part = { id: string; name: string; eta: string; originalEta: string };
 
-const initialParts: Part[] = [
-  { id: "headlamp", name: "Headlamp assembly", eta: "2026-08-03", originalEta: "2026-08-03" },
-  { id: "bumper", name: "Front bumper cover", eta: "2026-07-29", originalEta: "2026-07-29" },
-  { id: "bracket", name: "Mounting bracket", eta: "2026-07-27", originalEta: "2026-07-27" },
-];
+// Single source of truth: the same solver output the Procurement and Supplier
+// Detail tabs render. Hardcoding a second parts list here meant the tabs
+// disagreed about which part was gating for the same job.
+const initialParts: Part[] = basketToTimelineParts(recommendedBasket());
 
 type ManualStage = "damage_assessed" | "parts_ordered" | "in_bay" | "ready";
 const MANUAL_STAGES: { key: ManualStage; label: string; actionLabel: string }[] = [
@@ -133,50 +133,57 @@ export default function TimelinePage() {
 
   const nextManualStage = MANUAL_STAGES.find((s) => !doneAt[s.key]);
 
+  // Shared scale for the slack bars, so they're comparable across parts.
+  const maxOriginalSlack = Math.max(
+    ...parts.map((p) => Math.round(slack({ ...p, eta: p.originalEta }, parts))),
+    1,
+  );
+
+  // Computed outside any state updater: React updaters must be pure, and in
+  // StrictMode they run twice — emitting notifications from inside one made
+  // the customer thread double up.
   function delayPart(partId: string, days: number) {
-    setParts((prev) => {
-      const before = nextWorkingDay(readyDate(prev, LABOUR_DAYS));
-      const next = prev.map((p) => ({ ...p }));
-      const part = next.find((p) => p.id === partId)!;
-      const slackBefore = slack(part, next);
-      const { absorbed, slips } = applyDelay(part, next, days);
-      const after = nextWorkingDay(readyDate(next, LABOUR_DAYS));
-      const slipped = +after !== +before;
+    const before = nextWorkingDay(readyDate(parts, LABOUR_DAYS));
+    const next = parts.map((p) => ({ ...p }));
+    const part = next.find((p) => p.id === partId)!;
+    const slackBefore = Math.round(slack(part, next));
+    const { absorbed } = applyDelay(part, next, days);
+    const after = nextWorkingDay(readyDate(next, LABOUR_DAYS));
+    const slipped = +after !== +before;
 
-      if (slipped) {
-        const newGating = gatingPart(next);
-        const slipDays = Math.round(
-          (eta(newGating) - eta({ eta: newGating.originalEta })) / dayMs,
-        );
-        setSolverNote({
-          slipped: true,
-          at: new Date(),
-          text: `${part.name} overran its ${slackBefore} day${slackBefore === 1 ? "" : "s"} of slack by ${slips} — it's now the gating part. Pickup moves to ${fmt(after)}. Customer notified.`,
-        });
-        setNotifications((prevN) => [
-          ...prevN,
-          {
-            text: `Hi Sam — your ${newGating.name.toLowerCase()} is running ${slipDays} day${
-              slipDays === 1 ? "" : "s"
-            } late from the supplier, so pickup moves to ${fmt(
-              after,
-            )}. Nothing else changed. We'll text you when it's in the bay.`,
-            at: new Date(),
-          },
-        ]);
-      } else {
-        // The non-event still has to be visible, or the model looks like it
-        // did nothing rather than deciding nothing needed doing.
-        const remaining = slack(part, next);
-        setSolverNote({
-          slipped: false,
-          at: new Date(),
-          text: `${absorbed} of ${slackBefore} days slack used on ${part.name}, ${remaining} remaining. Pickup unchanged — no message sent.`,
-        });
-      }
+    setParts(next);
 
-      return next;
-    });
+    if (slipped) {
+      const newGating = gatingPart(next);
+      const slipDays = Math.round(
+        (eta(newGating) - eta({ eta: newGating.originalEta })) / dayMs,
+      );
+      setSolverNote({
+        slipped: true,
+        at: new Date(),
+        text: `${part.name} overran its ${slackBefore} day${slackBefore === 1 ? "" : "s"} of slack — it's now the gating part. Pickup moves to ${fmt(after)}. Customer notified.`,
+      });
+      setNotifications((prev) => [
+        ...prev,
+        {
+          text: `Hi Sam — your ${newGating.name.toLowerCase()} is running ${slipDays} day${
+            slipDays === 1 ? "" : "s"
+          } late from the supplier, so pickup moves to ${fmt(
+            after,
+          )}. Nothing else changed. We'll text you when it's in the bay.`,
+          at: new Date(),
+        },
+      ]);
+    } else {
+      // The non-event still has to be visible, or the model looks like it did
+      // nothing rather than deciding nothing needed doing.
+      const remaining = Math.round(slack(part, next));
+      setSolverNote({
+        slipped: false,
+        at: new Date(),
+        text: `${absorbed} of ${slackBefore} day${slackBefore === 1 ? "" : "s"} slack used on ${part.name}, ${remaining} remaining. Pickup unchanged — no message sent.`,
+      });
+    }
   }
 
   function completeManualStage(stage: ManualStage) {
@@ -249,6 +256,10 @@ export default function TimelinePage() {
                     slack({ ...part, eta: part.originalEta }, parts),
                   );
                   const used = Math.max(0, originalSlack - partSlack);
+                  // Bars share one scale (the largest original slack on the
+                  // job) so 7d and 5d look different — scaling each bar to its
+                  // own slack made every part render as a full-width block.
+                  const trackScale = maxOriginalSlack || 1;
                   // Always offer one button big enough to overrun this part's
                   // remaining slack, so every part can demonstrate both outcomes.
                   const breakingDelay = partSlack + 1;
@@ -280,25 +291,28 @@ export default function TimelinePage() {
 
                       {/* Slack bar — consumed vs remaining, so repeated clicks
                           are legible rather than an abstract number changing. */}
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
-                        {isGating ? (
-                          <div className="h-full w-full bg-amber-500" />
-                        ) : (
-                          <div className="flex h-full w-full">
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                          <div className="flex h-full">
                             <div
                               className="h-full bg-amber-400"
-                              style={{
-                                width: `${originalSlack ? (used / originalSlack) * 100 : 0}%`,
-                              }}
+                              style={{ width: `${(used / trackScale) * 100}%` }}
                             />
                             <div
                               className="h-full bg-green-500"
-                              style={{
-                                width: `${originalSlack ? (partSlack / originalSlack) * 100 : 100}%`,
-                              }}
+                              style={{ width: `${(partSlack / trackScale) * 100}%` }}
                             />
                           </div>
-                        )}
+                        </div>
+                        <span
+                          className={`w-24 shrink-0 text-right text-[10px] ${
+                            isGating ? "font-medium text-amber-600" : "text-slate-400"
+                          }`}
+                        >
+                          {isGating
+                            ? "no slack left"
+                            : `${partSlack}d left${used ? ` · ${used}d used` : ""}`}
+                        </span>
                       </div>
 
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -308,6 +322,16 @@ export default function TimelinePage() {
                         >
                           Delay 1 day
                         </button>
+                        {/* The middle case: big enough to visibly eat slack,
+                            small enough that a slack-rich part still absorbs. */}
+                        {breakingDelay > 3 && (
+                          <button
+                            onClick={() => delayPart(part.id, 3)}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                          >
+                            Delay 3 days
+                          </button>
+                        )}
                         {/* Only meaningful when it differs from the 1-day
                             button — a part with no slack already slips on 1. */}
                         {breakingDelay > 1 && (
@@ -387,7 +411,7 @@ export default function TimelinePage() {
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Customer view</h2>
             <p className="text-sm text-slate-500">
-              {plate} · Toyota Yaris 2023
+              {plate} · {VEHICLE.label}
             </p>
 
             {fromProcurement && (
