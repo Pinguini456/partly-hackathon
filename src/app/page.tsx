@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -9,23 +10,24 @@ import {
   Mic,
   FileText,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 
 type Inspection = {
   files: File[];
   status: "uploaded" | "analysing" | "complete";
-  notes?: string;
-  vehicle?: string;
-  parts?: string[];
 };
 
 
 export default function Home() {
 
+  const router = useRouter();
+
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
 
 
@@ -72,6 +74,8 @@ export default function Home() {
 
     setAnalysing(true);
 
+    setErrorMsg(null);
+
 
 
     setInspection({
@@ -95,46 +99,34 @@ export default function Home() {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || data.error || !data.id?.length) {
         console.error("API error", data);
         setInspection({
           ...inspection,
           status: "complete",
-          vehicle: "Vehicle lookup failed",
-          notes: "Unable to identify vehicle from uploaded images.",
-          parts: [],
         });
-      } else {
-        const notes = data.transcripts?.length
-          ? data.transcripts
-              .map((item: { fileName: string; text?: string; error?: string }) =>
-                item.text ? `${item.fileName}: ${item.text}` : `${item.fileName}: ${item.error}`
-              )
-              .join("\n")
-          : "No transcript available.";
-
-        setInspection({
-          ...inspection,
-          status: "complete",
-          vehicle: data.vehicle ?? "Unknown vehicle",
-          notes,
-          parts: ["Front bumper", "Left headlight", "Bonnet"],
-        });
+        setErrorMsg(
+            data.error ?? "Unable to identify any parts from the uploaded files."
+        );
+        setAnalysing(false);
+        setComplete(true);
+        return;
       }
+
+      // Hand the identified parts (id/name/image) off to the parts-selection
+      // page rather than rendering them inline here.
+      sessionStorage.setItem("partly:parts", JSON.stringify(data));
+      router.push("/parts");
     } catch (error) {
       console.error("Upload failed", error);
       setInspection({
         ...inspection,
         status: "complete",
-        vehicle: "Vehicle lookup failed",
-        notes: "Upload failed. Please try again.",
-        parts: [],
       });
+      setErrorMsg("Upload failed. Please try again.");
+      setAnalysing(false);
+      setComplete(true);
     }
-
-    setAnalysing(false);
-
-    setComplete(true);
 
   }
 
@@ -144,95 +136,95 @@ export default function Home() {
 
   return (
 
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <main className="min-h-screen bg-slate-50 text-slate-900">
 
 
-      <header className="border-b bg-white">
+        <header className="border-b bg-white">
 
-        <div className="mx-auto max-w-6xl px-8 py-6">
-
-
-          <h1 className="text-3xl font-semibold text-slate-900">
-
-            Repair Copilot
-
-          </h1>
+          <div className="mx-auto max-w-6xl px-8 py-6">
 
 
-          <p className="mt-2 text-slate-600">
+            <h1 className="text-3xl font-semibold text-slate-900">
 
-            Convert vehicle inspections into repair orders.
+              Repair Copilot
 
-          </p>
-
-
-        </div>
-
-      </header>
+            </h1>
 
 
+            <p className="mt-2 text-slate-600">
+
+              Convert vehicle inspections into repair orders.
+
+            </p>
 
 
+          </div>
 
-      <div className="mx-auto max-w-6xl px-8 py-10">
-
-
-
-        {/* Workflow */}
-
-
-        <div className="mb-10 flex items-center gap-4">
-
-
-          <Step
-            number="1"
-            text="Upload"
-            active
-          />
-
-
-          <div className="h-px flex-1 bg-slate-200"/>
-
-
-          <Step
-            number="2"
-            text="Analyse"
-          />
-
-
-          <div className="h-px flex-1 bg-slate-200"/>
-
-
-          <Step
-            number="3"
-            text="Review"
-          />
-
-
-          <div className="h-px flex-1 bg-slate-200"/>
-
-
-          <Step
-            number="4"
-            text="Repair Order"
-          />
-
-
-        </div>
+        </header>
 
 
 
 
 
+        <div className="mx-auto max-w-6xl px-8 py-10">
 
-        {/* Upload box */}
 
 
-        <div
+          {/* Workflow */}
 
-          {...getRootProps()}
 
-          className={`
+          <div className="mb-10 flex items-center gap-4">
+
+
+            <Step
+                number="1"
+                text="Upload"
+                active
+            />
+
+
+            <div className="h-px flex-1 bg-slate-200"/>
+
+
+            <Step
+                number="2"
+                text="Analyse"
+            />
+
+
+            <div className="h-px flex-1 bg-slate-200"/>
+
+
+            <Step
+                number="3"
+                text="Review"
+            />
+
+
+            <div className="h-px flex-1 bg-slate-200"/>
+
+
+            <Step
+                number="4"
+                text="Repair Order"
+            />
+
+
+          </div>
+
+
+
+
+
+
+          {/* Upload box */}
+
+
+          <div
+
+              {...getRootProps()}
+
+              className={`
           cursor-pointer
           rounded-xl
           border-2
@@ -242,56 +234,56 @@ export default function Home() {
           transition
 
           ${
-            isDragActive
-            ?
-            "border-indigo-600 bg-indigo-50"
-            :
-            "border-slate-300 hover:border-indigo-500"
-          }
+                  isDragActive
+                      ?
+                      "border-indigo-600 bg-indigo-50"
+                      :
+                      "border-slate-300 hover:border-indigo-500"
+              }
 
           `}
 
-        >
+          >
 
 
-          <input {...getInputProps()} />
+            <input {...getInputProps()} />
 
 
-          <div className="flex flex-col items-center text-center">
+            <div className="flex flex-col items-center text-center">
 
 
-            <div className="rounded-full bg-indigo-100 p-5">
+              <div className="rounded-full bg-indigo-100 p-5">
 
-              <Upload className="h-8 w-8 text-indigo-600"/>
+                <Upload className="h-8 w-8 text-indigo-600"/>
 
-            </div>
-
-
-
-            <h2 className="mt-6 text-2xl font-semibold text-slate-900">
-
-              Upload inspection files
-
-            </h2>
+              </div>
 
 
 
-            <p className="mt-2 max-w-md text-slate-600">
+              <h2 className="mt-6 text-2xl font-semibold text-slate-900">
 
-              Upload vehicle videos, photos, or technician voice notes.
+                Upload inspection files
 
-              Repair Copilot will prepare the repair information automatically.
-
-            </p>
+              </h2>
 
 
 
+              <p className="mt-2 max-w-md text-slate-600">
 
-            <button
+                Upload vehicle videos, photos, or technician voice notes.
 
-              type="button"
+                Repair Copilot will prepare the repair information automatically.
 
-              className="
+              </p>
+
+
+
+
+              <button
+
+                  type="button"
+
+                  className="
               mt-6
               rounded-lg
               bg-indigo-600
@@ -302,64 +294,64 @@ export default function Home() {
               hover:bg-indigo-700
               "
 
-            >
+              >
 
-              Choose Files
+                Choose Files
 
-            </button>
+              </button>
+
+
+            </div>
 
 
           </div>
 
 
-        </div>
 
 
 
 
 
+          {/* File types */}
 
 
-        {/* File types */}
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
 
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <InfoCard
+
+                icon={<Video/>}
+
+                title="Inspection videos"
+
+                description="Vehicle walkaround recordings"
+
+            />
 
 
-          <InfoCard
+            <InfoCard
 
-            icon={<Video/>}
+                icon={<Image/>}
 
-            title="Inspection videos"
+                title="Vehicle photos"
 
-            description="Vehicle walkaround recordings"
+                description="Damage and component images"
 
-          />
-
-
-          <InfoCard
-
-            icon={<Image/>}
-
-            title="Vehicle photos"
-
-            description="Damage and component images"
-
-          />
+            />
 
 
-          <InfoCard
+            <InfoCard
 
-            icon={<Mic/>}
+                icon={<Mic/>}
 
-            title="Voice notes"
+                title="Voice notes"
 
-            description="Natural technician observations"
+                description="Natural technician observations"
 
-          />
+            />
 
 
-        </div>
+          </div>
 
 
 
@@ -368,35 +360,35 @@ export default function Home() {
 
 
 
-        {/* Uploaded files */}
+          {/* Uploaded files */}
 
 
 
-        {inspection && (
+          {inspection && (
 
 
-          <section className="mt-10 rounded-xl border bg-white p-8 shadow-sm">
+              <section className="mt-10 rounded-xl border bg-white p-8 shadow-sm">
 
 
-            <h2 className="text-xl font-semibold text-slate-900">
+                <h2 className="text-xl font-semibold text-slate-900">
 
-              Uploaded inspection
+                  Uploaded inspection
 
-            </h2>
-
-
-
-            <div className="mt-5 space-y-3">
+                </h2>
 
 
-              {inspection.files.map((file)=>(
+
+                <div className="mt-5 space-y-3">
 
 
-                <div
+                  {inspection.files.map((file)=>(
 
-                  key={file.name}
 
-                  className="
+                      <div
+
+                          key={file.name}
+
+                          className="
                   flex
                   items-center
                   justify-between
@@ -406,61 +398,61 @@ export default function Home() {
                   p-4
                   "
 
-                >
+                      >
 
 
-                  <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3">
 
 
-                    <FileText className="text-slate-400"/>
+                          <FileText className="text-slate-400"/>
 
 
-                    <div>
+                          <div>
 
 
-                      <p className="font-medium text-slate-900">
+                            <p className="font-medium text-slate-900">
 
-                        {file.name}
+                              {file.name}
 
-                      </p>
-
-
-                      <p className="text-sm text-slate-500">
-
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-
-                      </p>
+                            </p>
 
 
-                    </div>
+                            <p className="text-sm text-slate-500">
+
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+
+                            </p>
 
 
-                  </div>
+                          </div>
+
+
+                        </div>
 
 
 
-                  <CheckCircle className="text-green-500"/>
+                        <CheckCircle className="text-green-500"/>
+
+
+                      </div>
+
+
+                  ))}
 
 
                 </div>
 
 
-              ))}
-
-
-            </div>
 
 
 
+                <button
 
+                    onClick={analyseInspection}
 
-            <button
+                    disabled={analysing}
 
-              onClick={analyseInspection}
-
-              disabled={analysing}
-
-              className="
+                    className="
               mt-8
               w-full
               rounded-lg
@@ -472,23 +464,23 @@ export default function Home() {
               disabled:bg-indigo-300
               "
 
-            >
+                >
 
-              {analysing
-                ?
-                "Analysing Inspection..."
-                :
-                "Analyse Inspection"
-              }
+                  {analysing
+                      ?
+                      "Analysing Inspection..."
+                      :
+                      "Analyse Inspection"
+                  }
 
 
-            </button>
+                </button>
 
 
-          </section>
+              </section>
 
 
-        )}
+          )}
 
 
 
@@ -498,43 +490,43 @@ export default function Home() {
 
 
 
-        {/* AI processing */}
+          {/* AI processing */}
 
 
 
-        {analysing && (
+          {analysing && (
 
 
-          <section className="mt-8 rounded-xl border bg-white p-8 shadow-sm">
+              <section className="mt-8 rounded-xl border bg-white p-8 shadow-sm">
 
 
-            <h2 className="text-xl font-semibold text-slate-900">
+                <h2 className="text-xl font-semibold text-slate-900">
 
-              Preparing repair summary
+                  Preparing repair summary
 
-            </h2>
+                </h2>
 
 
 
-            <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-4">
 
 
-              <Process text="Transcribing technician notes"/>
+                  <Process text="Transcribing technician notes"/>
 
-              <Process text="Identifying vehicle configuration"/>
+                  <Process text="Identifying vehicle configuration"/>
 
-              <Process text="Matching OEM replacement parts"/>
+                  <Process text="Matching OEM replacement parts"/>
 
-              <Process text="Comparing supplier options"/>
+                  <Process text="Comparing supplier options"/>
 
 
-            </div>
+                </div>
 
 
-          </section>
+              </section>
 
 
-        )}
+          )}
 
 
 
@@ -543,107 +535,48 @@ export default function Home() {
 
 
 
-        {/* Results */}
+          {/* Error */}
 
 
 
-        {complete && inspection && (
+          {complete && errorMsg && (
 
 
-          <section className="mt-8 rounded-xl border bg-white p-8 shadow-sm">
+              <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-8 shadow-sm">
 
 
-            <h2 className="text-2xl font-semibold text-slate-900">
+                <div className="flex items-start gap-3">
 
-              Repair Summary
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
 
-            </h2>
+                  <div>
 
+                    <h2 className="text-lg font-semibold text-slate-900">
 
+                      Couldn&apos;t prepare a repair summary
 
-            <div className="mt-6 space-y-4">
+                    </h2>
 
+                    <p className="mt-2 text-slate-700">
 
-              <div>
+                      {errorMsg}
 
-                <p className="text-sm text-slate-500">
+                    </p>
 
-                  Vehicle
+                  </div>
 
-                </p>
+                </div>
 
 
-                <p className="font-medium text-slate-900">
+                <button
 
-                  {inspection.vehicle}
+                    onClick={() => {
+                      setComplete(false);
+                      setErrorMsg(null);
+                    }}
 
-                </p>
-
-              </div>
-
-
-
-
-              <div>
-
-                <p className="text-sm text-slate-500">
-
-                  Notes
-
-                </p>
-
-
-                <p className="text-slate-700">
-
-                  {inspection.notes}
-
-                </p>
-
-              </div>
-
-
-
-
-
-              <div>
-
-                <p className="text-sm text-slate-500">
-
-                  Required Parts
-
-                </p>
-
-
-                <ul className="mt-2 list-disc pl-6 text-slate-700">
-
-
-                  {inspection.parts?.map(part=>(
-
-                    <li key={part}>
-
-                      {part}
-
-                    </li>
-
-                  ))}
-
-
-                </ul>
-
-
-              </div>
-
-
-
-            </div>
-
-
-
-
-            <button
-
-              className="
-              mt-8
+                    className="
+              mt-6
               rounded-lg
               bg-indigo-600
               px-8
@@ -653,24 +586,22 @@ export default function Home() {
               hover:bg-indigo-700
               "
 
-            >
+                >
 
-              Generate Repair Order
+                  Try again
 
-            </button>
+                </button>
 
+              </section>
 
-          </section>
-
-
-        )}
+          )}
 
 
 
-      </div>
+        </div>
 
 
-    </main>
+      </main>
 
   );
 
@@ -682,10 +613,10 @@ export default function Home() {
 
 
 function Step({
-  number,
-  text,
-  active
-}:{
+                number,
+                text,
+                active
+              }:{
   number:string;
   text:string;
   active?:boolean;
@@ -694,12 +625,12 @@ function Step({
 
   return (
 
-    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
 
 
-      <div
+        <div
 
-        className={`
+            className={`
         flex
         h-8
         w-8
@@ -710,30 +641,30 @@ function Step({
         font-medium
 
         ${
-          active
-          ?
-          "bg-indigo-600 text-white"
-          :
-          "bg-slate-200 text-slate-700"
-        }
+                active
+                    ?
+                    "bg-indigo-600 text-white"
+                    :
+                    "bg-slate-200 text-slate-700"
+            }
 
         `}
 
-      >
+        >
 
-        {number}
+          {number}
 
-      </div>
+        </div>
 
 
-      <span className="text-sm text-slate-700">
+        <span className="text-sm text-slate-700">
 
         {text}
 
       </span>
 
 
-    </div>
+      </div>
 
   );
 
@@ -746,10 +677,10 @@ function Step({
 
 
 function InfoCard({
-  icon,
-  title,
-  description
-}:{
+                    icon,
+                    title,
+                    description
+                  }:{
   icon:React.ReactNode;
   title:string;
   description:string;
@@ -758,31 +689,31 @@ function InfoCard({
 
   return (
 
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-white p-6 shadow-sm">
 
 
-      <div className="mb-4 w-fit rounded-lg bg-indigo-100 p-3 text-indigo-600">
+        <div className="mb-4 w-fit rounded-lg bg-indigo-100 p-3 text-indigo-600">
 
-        {icon}
+          {icon}
+
+        </div>
+
+
+        <h3 className="font-semibold text-slate-900">
+
+          {title}
+
+        </h3>
+
+
+        <p className="mt-1 text-sm text-slate-600">
+
+          {description}
+
+        </p>
+
 
       </div>
-
-
-      <h3 className="font-semibold text-slate-900">
-
-        {title}
-
-      </h3>
-
-
-      <p className="mt-1 text-sm text-slate-600">
-
-        {description}
-
-      </p>
-
-
-    </div>
 
   );
 
@@ -794,28 +725,28 @@ function InfoCard({
 
 
 function Process({
-  text
-}:{
+                   text
+                 }:{
   text:string;
 }) {
 
 
   return (
 
-    <div className="flex items-center gap-3 text-slate-700">
+      <div className="flex items-center gap-3 text-slate-700">
 
 
-      <div className="h-2 w-2 animate-pulse rounded-full bg-indigo-600"/>
+        <div className="h-2 w-2 animate-pulse rounded-full bg-indigo-600"/>
 
 
-      <span>
+        <span>
 
         {text}
 
       </span>
 
 
-    </div>
+      </div>
 
   );
 
