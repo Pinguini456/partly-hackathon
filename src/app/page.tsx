@@ -9,11 +9,18 @@ import {
   Mic,
   FileText,
   CheckCircle,
+  XCircle,
+  Loader2,
 } from "lucide-react";
+
+type UploadStatus = "pending" | "uploading" | "done" | "error";
 
 export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, UploadStatus>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [analysing, setAnalysing] = useState(false);
+  const [inspectionId, setInspectionId] = useState<string | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -25,6 +32,34 @@ export default function Home() {
       setFiles((prev) => [...prev, ...acceptedFiles]);
     },
   });
+
+  async function handleAnalyse() {
+    setAnalysing(true);
+
+    let currentInspectionId = inspectionId;
+    for (const file of files) {
+      setStatuses((prev) => ({ ...prev, [file.name]: "uploading" }));
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (currentInspectionId) formData.append("inspection_id", currentInspectionId);
+
+        const res = await fetch("/api/file_upload", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "upload failed");
+
+        currentInspectionId = data.inspection_id;
+        setInspectionId(data.inspection_id);
+        setStatuses((prev) => ({ ...prev, [file.name]: "done" }));
+      } catch (err) {
+        setStatuses((prev) => ({ ...prev, [file.name]: "error" }));
+        setErrors((prev) => ({
+          ...prev,
+          [file.name]: err instanceof Error ? err.message : "upload failed",
+        }));
+      }
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -152,7 +187,11 @@ export default function Home() {
 
             <div className="mt-5 space-y-3">
 
-              {files.map((file)=>(
+              {files.map((file)=>{
+
+                const status = statuses[file.name] ?? "pending";
+
+                return (
 
                 <div
                   key={file.name}
@@ -176,6 +215,9 @@ export default function Home() {
 
                       <p className="text-sm text-slate-500">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {status === "error" && errors[file.name]
+                          ? ` — ${errors[file.name]}`
+                          : ""}
                       </p>
 
                     </div>
@@ -183,19 +225,33 @@ export default function Home() {
                   </div>
 
 
-                  <CheckCircle className="text-green-500"/>
+                  {status === "uploading" && (
+                    <Loader2 className="animate-spin text-blue-500"/>
+                  )}
+                  {status === "done" && (
+                    <CheckCircle className="text-green-500"/>
+                  )}
+                  {status === "error" && (
+                    <XCircle className="text-red-500"/>
+                  )}
+                  {status === "pending" && (
+                    <CheckCircle className="text-slate-300"/>
+                  )}
 
 
                 </div>
 
-              ))}
+                );
+
+              })}
 
             </div>
 
 
 
             <button
-              onClick={()=>setAnalysing(true)}
+              onClick={handleAnalyse}
+              disabled={analysing}
               className="
               mt-8
               w-full
@@ -205,9 +261,10 @@ export default function Home() {
               font-semibold
               text-white
               hover:bg-blue-700
+              disabled:opacity-60
               "
             >
-              Analyse Inspection
+              {analysing ? "Uploading..." : "Analyse Inspection"}
             </button>
 
 
