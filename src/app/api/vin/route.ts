@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         }
 
         // @ts-ignore
-        let text = car_makes[res.text];
+        let text = car_makes[res.text] + "-" + res.text.toLowerCase();
 
         return NextResponse.json({ description: text });
     } catch (err) {
