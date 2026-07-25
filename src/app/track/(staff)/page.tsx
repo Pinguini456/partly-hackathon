@@ -194,7 +194,7 @@ export default function TimelinePage() {
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           {/* Staff panel */}
-          <section className="rounded-xl border bg-white p-6">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Shop staff view</h2>
 
             <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-4">
@@ -207,7 +207,7 @@ export default function TimelinePage() {
                 className="mt-1 w-full rounded-md border px-3 py-2 text-sm font-semibold uppercase text-slate-900"
               />
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                <Paintbrush className="h-4 w-4 text-blue-600" />
+                <Paintbrush className="h-4 w-4 text-indigo-600" />
                 Paint code for painter:{" "}
                 <span className="font-semibold text-slate-900">
                   {decodePaintCode(plate).code} — {decodePaintCode(plate).name}
@@ -287,7 +287,7 @@ export default function TimelinePage() {
                   <div
                     key={stage.key}
                     className={`rounded-lg border p-4 ${
-                      done ? "border-green-200 bg-green-50" : isNext ? "border-blue-300" : "opacity-50"
+                      done ? "border-green-200 bg-green-50" : isNext ? "border-indigo-300" : "opacity-50"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -299,7 +299,7 @@ export default function TimelinePage() {
                     {isNext && (
                       <button
                         onClick={() => completeManualStage(stage.key)}
-                        className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                        className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                       >
                         {stage.actionLabel}
                       </button>
@@ -311,11 +311,11 @@ export default function TimelinePage() {
           </section>
 
           {/* Customer panel */}
-          <section className="rounded-xl border bg-white p-6">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Customer view</h2>
 
             {fromProcurement && (
-              <p className="mt-1 text-xs text-blue-600">Parts basket applied: {fromProcurement}</p>
+              <p className="mt-1 text-xs text-indigo-600">Parts basket applied: {fromProcurement}</p>
             )}
 
             <div className="mt-4 flex items-baseline gap-2">
@@ -339,38 +339,38 @@ export default function TimelinePage() {
 
             <div className="mt-5 space-y-4">
               <TimelineRow
-                activeIcon={<CheckCircle2 className="h-5 w-5 text-blue-500" />}
+                activeIcon={<CheckCircle2 className="h-5 w-5 text-indigo-500" />}
                 label="Damage assessed"
                 status={doneAt.damage_assessed ? "done" : nextManualStage?.key === "damage_assessed" ? "current" : "upcoming"}
                 date={doneAt.damage_assessed ?? new Date()}
               />
               <TimelineRow
-                activeIcon={<CheckCircle2 className="h-5 w-5 text-blue-500" />}
+                activeIcon={<CheckCircle2 className="h-5 w-5 text-indigo-500" />}
                 label="Parts ordered"
                 status={doneAt.parts_ordered ? "done" : nextManualStage?.key === "parts_ordered" ? "current" : "upcoming"}
                 date={doneAt.parts_ordered ?? new Date()}
               />
               <TimelineRow
-                activeIcon={<Truck className="h-5 w-5 text-blue-500" />}
+                activeIcon={<Truck className="h-5 w-5 text-indigo-500" />}
                 label="Waiting on parts"
                 status={waitingOnPartsStatus}
                 date={waitingOnPartsEta}
               />
               <TimelineRow
-                activeIcon={<Wrench className="h-5 w-5 text-blue-500" />}
+                activeIcon={<Wrench className="h-5 w-5 text-indigo-500" />}
                 label="In the bay"
                 status={doneAt.in_bay ? "done" : nextManualStage?.key === "in_bay" ? "current" : "upcoming"}
                 date={doneAt.in_bay ?? inBayEta}
               />
               <TimelineRow
-                activeIcon={<KeyRound className="h-5 w-5 text-blue-500" />}
+                activeIcon={<KeyRound className="h-5 w-5 text-indigo-500" />}
                 label="Ready for pickup"
                 status={doneAt.ready ? "done" : nextManualStage?.key === "ready" ? "current" : "upcoming"}
                 date={doneAt.ready ?? currentReadyDate}
               />
             </div>
 
-            <div className="mt-8 rounded-xl border bg-slate-900 p-4">
+            <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-medium text-slate-200">
                 <MessageCircle className="h-4 w-4" />
                 Text messages
@@ -423,7 +423,7 @@ function TimelineRow({
             status === "done"
               ? "text-slate-500"
               : status === "current"
-                ? "text-blue-700"
+                ? "text-indigo-700"
                 : "text-slate-400"
           }`}
         >
