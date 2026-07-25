@@ -84,39 +84,53 @@ export default function Home() {
 
 
 
-    // Placeholder for AI agents
+    const formData = new FormData();
+    inspection.files.forEach((file) => formData.append("files", file));
 
-    await new Promise(
-      resolve => setTimeout(resolve, 4000)
-    );
+    try {
+      const response = await fetch("/api/main", {
+        method: "POST",
+        body: formData,
+      });
 
+      const data = await response.json();
 
+      if (!response.ok) {
+        console.error("API error", data);
+        setInspection({
+          ...inspection,
+          status: "complete",
+          vehicle: "Vehicle lookup failed",
+          notes: "Unable to identify vehicle from uploaded images.",
+          parts: [],
+        });
+      } else {
+        const notes = data.transcripts?.length
+          ? data.transcripts
+              .map((item: { fileName: string; text?: string; error?: string }) =>
+                item.text ? `${item.fileName}: ${item.text}` : `${item.fileName}: ${item.error}`
+              )
+              .join("\n")
+          : "No transcript available.";
 
-    setInspection({
-
-      ...inspection,
-
-      status: "complete",
-
-      vehicle:
-        "2022 Toyota Corolla GX",
-
-      notes:
-        "Technician noted damage to front bumper and left headlight.",
-
-      parts: [
-
-        "Front bumper",
-
-        "Left headlight",
-
-        "Bonnet"
-
-      ]
-
-    });
-
-
+        setInspection({
+          ...inspection,
+          status: "complete",
+          vehicle: data.vehicle ?? "Unknown vehicle",
+          notes,
+          parts: ["Front bumper", "Left headlight", "Bonnet"],
+        });
+      }
+    } catch (error) {
+      console.error("Upload failed", error);
+      setInspection({
+        ...inspection,
+        status: "complete",
+        vehicle: "Vehicle lookup failed",
+        notes: "Upload failed. Please try again.",
+        parts: [],
+      });
+    }
 
     setAnalysing(false);
 

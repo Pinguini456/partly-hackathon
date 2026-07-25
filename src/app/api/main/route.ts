@@ -77,11 +77,13 @@ export async function POST(req: NextRequest) {
                 transcripts.push({ fileName: video.name, error: "transcript failed" });
             }
         }
-        console.log(transcripts);
-        console.log(make);
 
-
-        return null;
+        return NextResponse.json({
+            vehicle: make,
+            imagesChecked,
+            totalImages: images.length,
+            transcripts,
+        });
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: "Upload processing failed" }, { status: 500 });
