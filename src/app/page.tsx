@@ -30,6 +30,7 @@ import { Label } from "@/src/components/ui/label";
 import { VEHICLES } from "@/src/lib/vehicles";
 import { AudioCapture } from "@/src/components/AudioCapture";
 import { Badge } from "@/src/components/ui/badge";
+import { compressImages } from "@/src/lib/compressImage";
 import {
     Insurance,
     Intake,
@@ -184,9 +185,17 @@ export default function Home() {
     const [finishing, setFinishing] = useState(false);
     const controllerRef = useRef<AbortController | null>(null);
 
-    function addFiles(newFiles: File[]) {
+    async function addFiles(newFiles: File[]) {
         if (!newFiles.length) return;
-        const wrapped: UploadedFile[] = newFiles.map((file) => ({
+
+        // Downscale before anything else touches these: a raw phone photo is
+        // bigger than the host will accept in a request body, so an
+        // uncompressed one fails to upload in production having worked fine
+        // on a laptop. Preview URLs are built from the compressed copy so
+        // what's shown is what's sent.
+        const prepared = await compressImages(newFiles);
+
+        const wrapped: UploadedFile[] = prepared.map((file) => ({
             id: crypto.randomUUID(),
             file,
             previewUrl:
