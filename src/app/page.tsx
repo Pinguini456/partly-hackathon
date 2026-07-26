@@ -17,6 +17,7 @@ import {
     Loader2,
     Circle,
     Camera,
+    ChevronDown,
 } from "lucide-react";
 import { WorkflowSteps } from "@/src/components/WorkflowSteps";
 import { Card, CardContent } from "@/src/components/ui/card";
@@ -28,11 +29,13 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { VEHICLES } from "@/src/lib/vehicles";
 import { AudioCapture } from "@/src/components/AudioCapture";
+import { Badge } from "@/src/components/ui/badge";
 import {
     Insurance,
     Intake,
     CustomerProblem,
     Todo,
+    hasInsurance,
     makeTodoId,
     serialiseIntake,
 } from "@/src/lib/intake";
@@ -107,6 +110,7 @@ export default function Home() {
     const [customerContact, setCustomerContact] = useState("");
     const [vehicleSlug, setVehicleSlug] = useState("");
     const [insurance, setInsurance] = useState<Insurance>({});
+    const [insuranceOpen, setInsuranceOpen] = useState(false);
 
     // The drop-off conversation. Transcribed as soon as it's captured rather
     // than at analysis time, so the extraction can be eyeballed — and thrown
@@ -481,15 +485,39 @@ export default function Home() {
 
                         {/* Insurance — optional, because plenty of jobs are
                         private-pay and asking for a claim number that doesn't
-                        exist is how forms get abandoned. */}
-                        <Card className="mb-6">
-                            <CardContent>
+                        exist is how forms get abandoned. Collapsed by default
+                        so a private-pay intake is a shorter form, not a form
+                        with four fields to ignore. */}
+                    <Card className="mb-6">
+                        <CardContent>
+                            <button
+                                type="button"
+                                onClick={() => setInsuranceOpen((o) => !o)}
+                                aria-expanded={insuranceOpen}
+                                className="flex w-full items-center justify-between gap-3 text-left"
+                            >
                                 <h2 className="text-lg font-semibold text-foreground">
                                     Insurance{" "}
                                     <span className="text-sm font-normal text-muted-foreground">
-                                    — optional
-                                </span>
+                                        — optional
+                                    </span>
                                 </h2>
+                                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    {!insuranceOpen && hasInsurance(insurance) && (
+                                        <Badge variant="secondary">
+                                            {insurance.insurer || "Details added"}
+                                        </Badge>
+                                    )}
+                                    {!insuranceOpen && !hasInsurance(insurance) && (
+                                        <span className="text-xs">Private pay</span>
+                                    )}
+                                    <ChevronDown
+                                        className={`h-4 w-4 shrink-0 transition-transform ${
+                                            insuranceOpen ? "rotate-180" : ""
+                                        }`}
+                                    />
+                                </span>
+                            </button>
                                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="insurer">Insurer</Label>
@@ -541,10 +569,9 @@ export default function Home() {
                                             placeholder="$400"
                                         />
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
+                                </div>)
+                        </CardContent>
+                    </Card>
                         {/* The drop-off conversation. This is the half of the job
                         that normally evaporates the moment the customer drives
                         off — someone hears "it judders at 80" and it never

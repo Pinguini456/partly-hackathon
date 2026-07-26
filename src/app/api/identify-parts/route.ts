@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {GoogleGenAI} from '@google/genai'
+import { readAssemblies } from "@/src/lib/localCatalogue";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
-
-const PARTLY_API_URL = process.env.PARTLY_API || "http://localhost:8420";
 
 interface Assembly {
     id: string;
@@ -26,13 +25,7 @@ interface Assembly {
 }
 
 async function getParts(slug: string): Promise<Assembly[]> {
-    const res = await fetch(`${PARTLY_API_URL}/vehicles/${slug}/assemblies`);
-
-    if (!res.ok) {
-        throw new Error(`Failed to fetch assemblies: ${PARTLY_API_URL}/vehicles/${slug}/assemblies`);
-    }
-
-    const data = await res.json();
+    const data = await readAssemblies(slug);
 
     const assemblies = data.assemblies ?? {};
 

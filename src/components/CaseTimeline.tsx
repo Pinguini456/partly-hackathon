@@ -78,12 +78,20 @@ export function CaseTimeline({
     customerName,
     initialStage,
     onStageChange,
+    messages = [],
+    onSendMessage,
+    hideStageControls,
 }: {
     orderedParts: TimelinePart[];
     customerName?: string | null;
     /** Stages up to and including this one start already done. */
     initialStage?: ManualStage;
     onStageChange?: (stage: ManualStage) => void;
+    /** Persisted thread, so it survives a reload and everyone sees the same. */
+    messages?: { text: string; at: string }[];
+    onSendMessage?: (text: string, stage: string) => void;
+    /** The case page owns stage advancement when it's driving the lifecycle. */
+    hideStageControls?: boolean;
 }) {
     const firstName = (customerName ?? "").trim().split(/\s+/)[0] || "there";
 
@@ -104,7 +112,6 @@ export function CaseTimeline({
         });
         return seeded;
     });
-    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [notifyOnStage, setNotifyOnStage] = useState(true);
     const [solverNote, setSolverNote] = useState<SolverNote | null>(null);
 
@@ -180,17 +187,14 @@ export function CaseTimeline({
                               after,
                           )}. Customer notified.`,
             });
-            setNotifications((prev) => [
-                ...prev,
-                {
-                    text: `Hi ${firstName} — your ${newGating.name.toLowerCase()} is running ${slipDays} day${
-                        slipDays === 1 ? "" : "s"
-                    } late from the supplier, so pickup moves to ${fmt(
-                        after,
-                    )}. Nothing else changed. We'll text you when it's in the bay.`,
-                    at: new Date(),
-                },
-            ]);
+            onSendMessage?.(
+                `Hi ${firstName} — your ${newGating.name.toLowerCase()} is running ${slipDays} day${
+                    slipDays === 1 ? "" : "s"
+                } late from the supplier, so pickup moves to ${fmt(
+                    after,
+                )}. Nothing else changed. We'll text you when it's in the bay.`,
+                "delay",
+            );
         } else {
             // The non-event still has to be visible, or it looks like the
             // model did nothing rather than deciding nothing needed doing.
@@ -218,7 +222,7 @@ export function CaseTimeline({
             in_bay: "Your vehicle is now in the workshop and repairs have started.",
             ready: "🎉 Your vehicle is ready for pickup!",
         };
-        setNotifications((prev) => [...prev, { text: canned[stage], at: new Date() }]);
+        onSendMessage?.(canned[stage], stage);
     }
 
     const waitingOnPartsStatus: "done" | "current" | "upcoming" = doneAt.parts_arrived
@@ -372,6 +376,7 @@ export function CaseTimeline({
                         )}
                     </div>
 
+                    {!hideStageControls && (
                     <div className="mt-5 flex items-center gap-2">
                         <Checkbox
                             id="notify-on-stage"
@@ -382,8 +387,9 @@ export function CaseTimeline({
                             Notify customer on stage updates
                         </Label>
                     </div>
+                    )}
 
-                    <div className="mt-3 space-y-3">
+                    <div className={`mt-3 space-y-3 ${hideStageControls ? "hidden" : ""}`}>
                         {MANUAL_STAGES.map((stage) => {
                             const done = doneAt[stage.key];
                             const isNext = nextManualStage?.key === stage.key;
@@ -521,19 +527,19 @@ export function CaseTimeline({
                             Messages to customer
                         </div>
                         <div className="mt-3 space-y-2">
-                            {notifications.length === 0 && (
+                            {messages.length === 0 && (
                                 <p className="text-sm text-muted-foreground">
                                     No messages sent yet.
                                 </p>
                             )}
-                            {notifications.map((n, i) => (
+                            {messages.map((n, i) => (
                                 <div key={i} className="flex justify-end">
                                     <div className="max-w-[85%]">
                                         <div className="rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground">
                                             {n.text}
                                         </div>
                                         <div className="mt-1 text-right text-[10px] text-muted-foreground">
-                                            Delivered {n.at.toLocaleTimeString()}
+                                            Delivered {new Date(n.at).toLocaleTimeString()}
                                         </div>
                                     </div>
                                 </div>
