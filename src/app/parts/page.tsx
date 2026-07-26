@@ -11,6 +11,12 @@ import {
   Star,
   Truck,
 } from "lucide-react";
+import { WorkflowSteps } from "@/src/components/WorkflowSteps";
+import {
+  buildOptions,
+  optionKey,
+  SupplierOption,
+} from "@/src/lib/supplierOptions";
 
 type PartsResponse = {
   id: string[];
@@ -24,80 +30,8 @@ type Part = {
   image: string;
 };
 
-type SupplierType = "OEM" | "Aftermarket";
-
-type SupplierOption = {
-  supplier: string;
-  type: SupplierType;
-  price: number;
-  rating: number;
-  shippingDays: number;
-};
-
 type SortKey = "price" | "rating" | "shipping";
 type SortDirection = "asc" | "desc";
-
-// Hardcoded supplier pool. Real supplier/pricing data isn't wired up yet,
-// so each part gets 4 deterministic mock options drawn from this pool.
-const SUPPLIER_POOL = [
-  "PartsDirect NZ",
-  "AutoWreckers Co",
-  "OEM Direct",
-  "Global Auto Parts",
-  "QuickFit Supplies",
-  "TradeParts Warehouse",
-  "Prestige Parts Co",
-  "Southern Auto Salvage",
-];
-
-// Simple deterministic PRNG (mulberry32) seeded from the part id/name so the
-// same part always shows the same 4 hardcoded options on re-render.
-function mulberry32(seed: number) {
-  let a = seed;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
-}
-
-function buildOptions(seed: string): SupplierOption[] {
-  const rand = mulberry32(hashString(seed));
-
-  const suppliers = [...SUPPLIER_POOL]
-      .map((s) => ({ s, sort: rand() }))
-      .sort((a, b) => a.sort - b.sort)
-      .slice(0, 4)
-      .map((x) => x.s);
-
-  return suppliers.map((supplier) => {
-    const isOEM = rand() > 0.5;
-    const basePrice = isOEM ? 180 + rand() * 220 : 55 + rand() * 150;
-
-    return {
-      supplier,
-      type: isOEM ? "OEM" : "Aftermarket",
-      price: Math.round(basePrice),
-      rating: Math.round((3.4 + rand() * 1.6) * 10) / 10,
-      shippingDays: 1 + Math.floor(rand() * 9),
-    };
-  });
-}
-
-function optionKey(option: SupplierOption) {
-  return option.supplier;
-}
 
 export default function PartsPage() {
   const router = useRouter();
@@ -129,7 +63,22 @@ export default function PartsPage() {
     } catch {
       setMissing(true);
     }
+
+    const rawSelections = sessionStorage.getItem("partly:selections");
+    if (rawSelections) {
+      try {
+        setSelections(JSON.parse(rawSelections));
+      } catch {
+        // Ignore malformed/stale selection data.
+      }
+    }
   }, []);
+
+  // Keep chosen suppliers in sessionStorage so they survive navigating to
+  // the order page (and back) without needing to re-select anything.
+  useEffect(() => {
+    sessionStorage.setItem("partly:selections", JSON.stringify(selections));
+  }, [selections]);
 
   const optionsByPart = useMemo(() => {
     const map: Record<string, SupplierOption[]> = {};
@@ -210,7 +159,11 @@ export default function PartsPage() {
           </div>
         </header>
 
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-8 py-10 md:grid-cols-[260px_1fr]">
+        <div className="mx-auto max-w-6xl px-8 pt-10">
+          <WorkflowSteps current={3} />
+        </div>
+
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-8 pb-10 md:grid-cols-[260px_1fr]">
           {/* Left: parts list */}
           <aside className="h-fit rounded-xl border bg-white p-4 shadow-sm">
             <h2 className="px-2 pb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -261,6 +214,14 @@ export default function PartsPage() {
                 ${orderTotal}
               </p>
             </div>
+
+            <button
+                onClick={() => router.push("/order")}
+                disabled={selectedCount === 0}
+                className="mt-4 w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:bg-indigo-300"
+            >
+              Proceed to Order
+            </button>
           </aside>
 
           {/* Right: active part + options */}
