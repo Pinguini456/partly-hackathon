@@ -29,7 +29,7 @@ async function getParts(slug: string): Promise<Assembly[]> {
     const res = await fetch(`${PARTLY_API_URL}/vehicles/${slug}/assemblies`);
 
     if (!res.ok) {
-        throw new Error(`Failed to fetch assemblies: ${res.status}`);
+        throw new Error(`Failed to fetch assemblies: ${PARTLY_API_URL}/vehicles/${slug}/assemblies`);
     }
 
     const data = await res.json();

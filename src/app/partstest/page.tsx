@@ -2,40 +2,51 @@
 
 import { useState } from "react";
 
-export default function TestPartsPage() {
-    const [transcription, setTranscription] = useState("");
-    const [make, setMake] = useState("");
-    const [result, setResult] = useState<string | null>(null);
-    const [partIds, setPartIds] = useState<string[]>([]);
+type UploadResponse = {
+    id: string[];
+    name: string[];
+    image: string[];
+};
+
+type UploadError = {
+    error: string;
+};
+
+export default function TestPage() {
+    const [files, setFiles] = useState<FileList | null>(null);
+    const [result, setResult] = useState<UploadResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async () => {
-        if (!transcription || !make) return;
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!files || files.length === 0) {
+            setError("Select at least one file");
+            return;
+        }
 
         setLoading(true);
-        setResult(null);
-        setPartIds([]);
         setError(null);
+        setResult(null);
+
+        const formData = new FormData();
+        for (const file of Array.from(files)) {
+            formData.append("files", file);
+        }
 
         try {
-            const res = await fetch("/api/identify-parts", {
+            const res = await fetch("/api/main", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ transcription, make }),
+                body: formData,
             });
 
-            const data = await res.json();
+            const data: UploadResponse | UploadError = await res.json();
 
-            if (data.error) {
+            if ("error" in data) {
                 setError(data.error);
             } else {
-                setResult(data.description);
-                setPartIds(
-                    data.description
-                        ? data.description.split("/").map((id: string) => id.trim())
-                        : []
-                );
+                setResult(data);
             }
         } catch (err) {
             console.error(err);
@@ -43,82 +54,55 @@ export default function TestPartsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     return (
-        <div style={{ maxWidth: 600, margin: "40px auto", padding: 16 }}>
-            <h1>Parts Lookup Test</h1>
-            <p style={{ color: "#666" }}>
-                Enter a vehicle slug and a transcript describing what's damaged —
-                this hits the parts API and returns matching part ids.
-            </p>
+        <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
+            <h1>Upload Test</h1>
 
-            <div style={{ marginTop: 16 }}>
-                <label style={{ display: "block", marginBottom: 4 }}>
-                    Vehicle slug (make)
-                </label>
+            <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
                 <input
-                    type="text"
-                    value={make}
-                    onChange={(e) => setMake(e.target.value)}
-                    placeholder="e.g. hyundai-iload-ezu765"
-                    style={{ width: "100%", padding: 8 }}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={(e) => setFiles(e.target.files)}
                 />
-            </div>
+                <button type="submit" disabled={loading} style={{ marginLeft: 12 }}>
+                    {loading ? "Uploading..." : "Upload"}
+                </button>
+            </form>
 
-            <div style={{ marginTop: 16 }}>
-                <label style={{ display: "block", marginBottom: 4 }}>
-                    Transcription
-                </label>
-                <textarea
-                    value={transcription}
-                    onChange={(e) => setTranscription(e.target.value)}
-                    placeholder="e.g. The front bumper is cracked and the left headlight is smashed"
-                    rows={5}
-                    style={{ width: "100%", padding: 8 }}
-                />
-            </div>
-
-            <button
-                onClick={handleSubmit}
-                disabled={!transcription || !make || loading}
-                style={{ marginTop: 16, padding: "8px 16px" }}
-            >
-                {loading ? "Finding parts..." : "Find Parts"}
-            </button>
-
-            {error && (
-                <p style={{ marginTop: 16, color: "crimson" }}>
-                    <strong>Error:</strong> {error}
-                </p>
-            )}
+            {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
             {result && (
-                <div style={{ marginTop: 24 }}>
-                    <h2>Result</h2>
-                    <p style={{ fontSize: 14, color: "#666" }}>Raw response:</p>
-                    <pre
-                        style={{
-                            background: "#f5f5f5",
-                            padding: 12,
-                            borderRadius: 4,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-all",
-                        }}
-                    >
-                        {result}
-                    </pre>
-
-                    <p style={{ fontSize: 14, color: "#666", marginTop: 12 }}>
-                        Parsed part ids ({partIds.length}):
-                    </p>
-                    <ul>
-                        {partIds.map((id, i) => (
-                            <li key={i} style={{ fontFamily: "monospace", fontSize: 13 }}>
-                                {id}
-                            </li>
-                        ))}
-                    </ul>
+                <div>
+                    <h2>Results</h2>
+                    {result.id.length === 0 && <p>No parts returned.</p>}
+                    {result.id.map((id, i) => (
+                        <div
+                            key={id}
+                            style={{
+                                border: "1px solid #ccc",
+                                borderRadius: 8,
+                                padding: 12,
+                                marginBottom: 12,
+                            }}
+                        >
+                            <p>
+                                <strong>ID:</strong> {id}
+                            </p>
+                            <p>
+                                <strong>Name:</strong> {result.name[i]}
+                            </p>
+                            {result.image[i] && (
+                                <img
+                                    src={result.image[i]}
+                                    alt={result.name[i]}
+                                    style={{ maxWidth: "100%", height: "auto" }}
+                                />
+                            )}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
