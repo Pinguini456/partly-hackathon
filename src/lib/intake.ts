@@ -34,12 +34,22 @@ export type Todo = {
     addedAt: string;
 };
 
+/** A message actually sent to the customer, kept so the thread survives a
+ *  reload and anyone opening the case sees what they've already been told. */
+export type CustomerMessage = {
+    text: string;
+    at: string;
+    /** Which stage triggered it, or "manual" for a one-off. */
+    stage: string;
+};
+
 export type Intake = {
     insurance?: Insurance | null;
     /** Full transcript of the drop-off conversation. */
     interviewTranscript?: string | null;
     problems?: CustomerProblem[];
     todos?: Todo[];
+    messages?: CustomerMessage[];
 };
 
 export const EMPTY_INTAKE: Intake = {
@@ -47,6 +57,7 @@ export const EMPTY_INTAKE: Intake = {
     interviewTranscript: null,
     problems: [],
     todos: [],
+    messages: [],
 };
 
 /** Reads the envelope back out of `summary`, tolerating legacy plain text. */
@@ -62,6 +73,7 @@ export function parseIntake(summary: string | null | undefined): Intake {
             interviewTranscript: parsed.interviewTranscript ?? null,
             problems: Array.isArray(parsed.problems) ? parsed.problems : [],
             todos: Array.isArray(parsed.todos) ? parsed.todos : [],
+            messages: Array.isArray(parsed.messages) ? parsed.messages : [],
         };
     } catch {
         return { ...EMPTY_INTAKE };

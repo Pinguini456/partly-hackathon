@@ -1,0 +1,25 @@
+# Trim the bundled dataset to just the hero case (Yaris) + one no-catalogue
+# example (Holden Barina), to stay well under serverless function size
+# limits. Full dataset is 510MB; this keeps it to ~70MB. The app degrades
+# gracefully (freeform identification) for any vehicle whose data is
+# missing, so trimming the rest is safe, not just fast.
+partly-api/data/vehicles/hyundai-iload-ezu765
+partly-api/data/vehicles/hyundai-santafe-pns53
+partly-api/data/vehicles/jaguar-epace-rfh447
+partly-api/data/vehicles/mitsubishi-outlander-rlp440
+partly-api/data/vehicles/nissan-silvia-rft360
+partly-api/data/vehicles/toyota-hiace-nye733
+partly-api/data/vehicles/toyota-prius-pkw74
+
+partly-api/data/damage-contexts/hyundai-iload-ezu765
+partly-api/data/damage-contexts/hyundai-santafe-pns53
+partly-api/data/damage-contexts/jaguar-epace-rfh447
+partly-api/data/damage-contexts/mitsubishi-outlander-rlp440
+partly-api/data/damage-contexts/nissan-juke-jzu83
+partly-api/data/damage-contexts/nissan-silvia-rft360
+partly-api/data/damage-contexts/renault-pbu474
+partly-api/data/damage-contexts/suzuki-nns414
+partly-api/data/damage-contexts/toyota-hiace-nye733
+partly-api/data/damage-contexts/toyota-prius-pkw74
+
+node_modules
