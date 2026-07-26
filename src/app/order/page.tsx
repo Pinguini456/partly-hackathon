@@ -311,7 +311,7 @@ export default function OrderPage() {
                                 <Checkbox
                                     id="send-images"
                                     checked={sendImagesToInsurer}
-                                    onCheckedChange={(checked) =>
+                                    onCheckedChange={(checked: boolean) =>
                                         setSendImagesToInsurer(checked === true)
                                     }
                                 />
