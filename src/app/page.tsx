@@ -569,7 +569,7 @@ export default function Home() {
                                             placeholder="$400"
                                         />
                                     </div>
-                                </div>)
+                                </div>
                         </CardContent>
                     </Card>
                         {/* The drop-off conversation. This is the half of the job
