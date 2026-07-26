@@ -3,18 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Only rendered on staff-facing screens. Customer-facing views (/choose, the
-// customer half of /track) deliberately don't get this bar — it would break
-// the illusion that they're a separate audience, not the internal tool.
-const STAFF_ROUTES = ["/", "/track", "/track/procurement", "/track/suppliers"];
-
 const LINKS = [
-  { href: "/", label: "Upload" },
-  { href: "/track", label: "Track Job" },
+  { href: "/", label: "Create" },
+  { href: "/track", label: "Orders" },
 ];
 
 // A route "owns" a nav link if it's that link's href or a sub-route of it —
-// so /track/procurement still highlights "Track Job".
+// so /track/procurement still highlights "Orders".
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
@@ -22,10 +17,12 @@ function isActive(pathname: string, href: string) {
 
 export default function StaffNav() {
   const pathname = usePathname();
-  if (!STAFF_ROUTES.includes(pathname)) return null;
 
   return (
-    <nav className="border-b bg-slate-900">
+    // Sticky comes from main; the full-bleed row (no mx-auto/max-w) is this
+    // branch's change — the logo sits hard-left instead of the whole
+    // logo+links group floating centred with empty gutters either side.
+    <nav className="sticky top-0 z-50 border-b bg-slate-900">
       <div className="flex items-center gap-1 px-8 py-3 text-sm">
         <span className="mr-6 flex items-center gap-2 font-semibold text-white">
           <span className="h-2 w-2 rounded-full bg-indigo-500" />
