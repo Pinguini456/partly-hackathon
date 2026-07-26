@@ -16,6 +16,7 @@ import {
     CheckCircle2,
     Loader2,
     Circle,
+    Camera,
     ChevronDown,
 } from "lucide-react";
 import { WorkflowSteps } from "@/src/components/WorkflowSteps";
@@ -428,61 +429,61 @@ export default function Home() {
                     files are evidence attached to someone's car, not a
                     standalone parts query. */}
                 {!analysing && (
-                  <>
-                    <Card className="mb-6">
-                        <CardContent>
-                            <h2 className="text-lg font-semibold text-foreground">Customer</h2>
-                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="customer-name">Name</Label>
-                                    <Input
-                                        id="customer-name"
-                                        value={customerName}
-                                        onChange={(e) => setCustomerName(e.target.value)}
-                                        placeholder="Joe Smith"
-                                    />
+                    <>
+                        <Card className="mb-6">
+                            <CardContent>
+                                <h2 className="text-lg font-semibold text-foreground">Customer</h2>
+                                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="customer-name">Name</Label>
+                                        <Input
+                                            id="customer-name"
+                                            value={customerName}
+                                            onChange={(e) => setCustomerName(e.target.value)}
+                                            placeholder="Joe Smith"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="customer-contact">Phone or email</Label>
+                                        <Input
+                                            id="customer-contact"
+                                            value={customerContact}
+                                            onChange={(e) => setCustomerContact(e.target.value)}
+                                            placeholder="027 123 4567"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="customer-contact">Phone or email</Label>
-                                    <Input
-                                        id="customer-contact"
-                                        value={customerContact}
-                                        onChange={(e) => setCustomerContact(e.target.value)}
-                                        placeholder="027 123 4567"
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="mt-4 space-y-1.5">
-                                <Label htmlFor="vehicle-slug">
-                                    Vehicle{" "}
-                                    <span className="font-normal text-muted-foreground">
+                                <div className="mt-4 space-y-1.5">
+                                    <Label htmlFor="vehicle-slug">
+                                        Vehicle{" "}
+                                        <span className="font-normal text-muted-foreground">
                                         — optional, we read the plate off your photos
                                     </span>
-                                </Label>
-                                <select
-                                    id="vehicle-slug"
-                                    value={vehicleSlug}
-                                    onChange={(e) => setVehicleSlug(e.target.value)}
-                                    className="h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                                >
-                                    <option value="">Detect from photos</option>
-                                    {VEHICLES.map((v) => (
-                                        <option key={v.slug} value={v.slug}>
-                                            {v.label} · {v.plate}
-                                            {v.hasCatalogue ? "" : " (no parts catalogue)"}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="text-xs text-muted-foreground">
-                                    Set this when the plate isn&apos;t in shot — a walkaround video
-                                    often never shows it.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                    </Label>
+                                    <select
+                                        id="vehicle-slug"
+                                        value={vehicleSlug}
+                                        onChange={(e) => setVehicleSlug(e.target.value)}
+                                        className="h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                    >
+                                        <option value="">Detect from photos</option>
+                                        {VEHICLES.map((v) => (
+                                            <option key={v.slug} value={v.slug}>
+                                                {v.label} · {v.plate}
+                                                {v.hasCatalogue ? "" : " (no parts catalogue)"}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Set this when the plate isn&apos;t in shot — a walkaround video
+                                        often never shows it.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                    {/* Insurance — optional, because plenty of jobs are
+                        {/* Insurance — optional, because plenty of jobs are
                         private-pay and asking for a claim number that doesn't
                         exist is how forms get abandoned. Collapsed by default
                         so a private-pay intake is a shorter form, not a form
@@ -517,8 +518,6 @@ export default function Home() {
                                     />
                                 </span>
                             </button>
-
-                            {insuranceOpen && (
                                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="insurer">Insurer</Label>
@@ -571,91 +570,89 @@ export default function Home() {
                                         />
                                     </div>
                                 </div>
-                            )}
                         </CardContent>
                     </Card>
-
-                    {/* The drop-off conversation. This is the half of the job
+                        {/* The drop-off conversation. This is the half of the job
                         that normally evaporates the moment the customer drives
                         off — someone hears "it judders at 80" and it never
                         reaches the tech who does the work. */}
-                    <Card className="mb-6">
-                        <CardContent>
-                            <h2 className="text-lg font-semibold text-foreground">
-                                Customer interview{" "}
-                                <span className="text-sm font-normal text-muted-foreground">
+                        <Card className="mb-6">
+                            <CardContent>
+                                <h2 className="text-lg font-semibold text-foreground">
+                                    Customer interview{" "}
+                                    <span className="text-sm font-normal text-muted-foreground">
                                     — optional
                                 </span>
-                            </h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Record the customer describing what&apos;s wrong, or upload a clip.
-                                We&apos;ll transcribe it and pull out what they reported.
-                            </p>
-
-                            <div className="mt-4">
-                                <AudioCapture
-                                    onCapture={handleInterviewCapture}
-                                    busy={interviewBusy}
-                                    busyLabel="Transcribing and pulling out the issues…"
-                                />
-                            </div>
-
-                            {interviewError && (
-                                <p className="mt-3 text-sm text-destructive">{interviewError}</p>
-                            )}
-
-                            {problems.length > 0 && (
-                                <div className="mt-4">
-                                    <p className="text-sm font-medium text-foreground">
-                                        Reported by the customer
-                                    </p>
-                                    <ul className="mt-2 space-y-2">
-                                        {problems.map((p, i) => (
-                                            <li key={i} className="rounded-lg border p-3">
-                                                <p className="text-sm font-medium text-foreground">
-                                                    {p.summary}
-                                                </p>
-                                                <p className="mt-1 text-xs italic text-muted-foreground">
-                                                    &ldquo;{p.quote}&rdquo;
-                                                </p>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {suggestedTodos.length > 0 && (
-                                <div className="mt-4 rounded-lg border border-primary/40 bg-accent/40 p-3">
-                                    <p className="text-sm font-medium text-foreground">
-                                        {suggestedTodos.length} suggested job
-                                        {suggestedTodos.length === 1 ? "" : "s"}
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">
-                                        You&apos;ll review these on the case before any of it
-                                        becomes actual work.
-                                    </p>
-                                    <ul className="mt-2 space-y-1">
-                                        {suggestedTodos.map((t) => (
-                                            <li
-                                                key={t.id}
-                                                className="text-xs text-muted-foreground"
-                                            >
-                                                • {t.task}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {interviewTranscript && problems.length === 0 && !interviewBusy && (
-                                <p className="mt-3 text-xs text-muted-foreground">
-                                    Transcribed, but no specific vehicle issues were picked out.
-                                    The full transcript is still saved to the case.
+                                </h2>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Record the customer describing what&apos;s wrong, or upload a clip.
+                                    We&apos;ll transcribe it and pull out what they reported.
                                 </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                  </>
+
+                                <div className="mt-4">
+                                    <AudioCapture
+                                        onCapture={handleInterviewCapture}
+                                        busy={interviewBusy}
+                                        busyLabel="Transcribing and pulling out the issues…"
+                                    />
+                                </div>
+
+                                {interviewError && (
+                                    <p className="mt-3 text-sm text-destructive">{interviewError}</p>
+                                )}
+
+                                {problems.length > 0 && (
+                                    <div className="mt-4">
+                                        <p className="text-sm font-medium text-foreground">
+                                            Reported by the customer
+                                        </p>
+                                        <ul className="mt-2 space-y-2">
+                                            {problems.map((p, i) => (
+                                                <li key={i} className="rounded-lg border p-3">
+                                                    <p className="text-sm font-medium text-foreground">
+                                                        {p.summary}
+                                                    </p>
+                                                    <p className="mt-1 text-xs italic text-muted-foreground">
+                                                        &ldquo;{p.quote}&rdquo;
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {suggestedTodos.length > 0 && (
+                                    <div className="mt-4 rounded-lg border border-primary/40 bg-accent/40 p-3">
+                                        <p className="text-sm font-medium text-foreground">
+                                            {suggestedTodos.length} suggested job
+                                            {suggestedTodos.length === 1 ? "" : "s"}
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-muted-foreground">
+                                            You&apos;ll review these on the case before any of it
+                                            becomes actual work.
+                                        </p>
+                                        <ul className="mt-2 space-y-1">
+                                            {suggestedTodos.map((t) => (
+                                                <li
+                                                    key={t.id}
+                                                    className="text-xs text-muted-foreground"
+                                                >
+                                                    • {t.task}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {interviewTranscript && problems.length === 0 && !interviewBusy && (
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        Transcribed, but no specific vehicle issues were picked out.
+                                        The full transcript is still saved to the case.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </>
                 )}
 
                 {/* Upload controls — hidden during analysis so there's nothing
@@ -684,9 +681,10 @@ export default function Home() {
 
                                 <p className="mt-1 text-sm text-muted-foreground">Drag files here or</p>
 
-                                <Button size="lg" className="mt-5">
-                                    Choose Files
-                                </Button>
+                                <div className="mt-5 flex items-center gap-2">
+                                    <Button size="lg">Choose Files</Button>
+                                    <CameraCaptureButton id="camera-empty-state" onFiles={addFiles} />
+                                </div>
 
                                 <p className="mt-3 text-xs text-muted-foreground">
                                     {ACCEPTED_FORMATS} · up to {MAX_FILE_SIZE / 1024 / 1024}MB per file ·{" "}
@@ -697,6 +695,11 @@ export default function Home() {
 
                         <div className="mt-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
                             <span className="mr-1">Add specific files:</span>
+                            <CameraCaptureChip
+                                photoId="picker-camera-photo"
+                                videoId="picker-camera-video"
+                                onFiles={addFiles}
+                            />
                             <FilePickerChip
                                 id="picker-video"
                                 icon={<Video className="h-4 w-4" />}
@@ -741,49 +744,49 @@ export default function Home() {
                     <>
                         <Card className="mt-6">
                             <CardContent>
-                            <h2 className="text-xl font-semibold text-foreground">
-                                Preparing repair summary
-                            </h2>
+                                <h2 className="text-xl font-semibold text-foreground">
+                                    Preparing repair summary
+                                </h2>
 
-                            <div className="mt-6 space-y-4">
-                                {STEPS.map((step, i) => (
-                                    <ProcessStep
-                                        key={step.key}
-                                        label={step.label}
-                                        state={
-                                            i < activeStepIndex
-                                                ? "done"
-                                                : i === activeStepIndex
-                                                  ? "active"
-                                                  : "pending"
-                                        }
-                                        result={stepResults[step.key]}
-                                    />
-                                ))}
-                            </div>
-
-                            <div className="mt-6">
-                                <Progress value={progressPct} className="w-full" />
-                                <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>Usually takes about {Math.round(TOTAL_ESTIMATE_MS / 1000)} seconds</span>
-                                    <span>{Math.round(progressPct)}%</span>
+                                <div className="mt-6 space-y-4">
+                                    {STEPS.map((step, i) => (
+                                        <ProcessStep
+                                            key={step.key}
+                                            label={step.label}
+                                            state={
+                                                i < activeStepIndex
+                                                    ? "done"
+                                                    : i === activeStepIndex
+                                                        ? "active"
+                                                        : "pending"
+                                            }
+                                            result={stepResults[step.key]}
+                                        />
+                                    ))}
                                 </div>
-                            </div>
 
-                            <div className="mt-6 flex items-center justify-between gap-4 border-t pt-5">
-                                <p className="text-xs text-muted-foreground">
-                                    Stay on this page until this finishes — closing it will cancel the
-                                    analysis.
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    onClick={cancelAnalysis}
-                                    disabled={finishing}
-                                    className="shrink-0"
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
+                                <div className="mt-6">
+                                    <Progress value={progressPct} className="w-full" />
+                                    <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Usually takes about {Math.round(TOTAL_ESTIMATE_MS / 1000)} seconds</span>
+                                        <span>{Math.round(progressPct)}%</span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 flex items-center justify-between gap-4 border-t pt-5">
+                                    <p className="text-xs text-muted-foreground">
+                                        Stay on this page until this finishes — closing it will cancel the
+                                        analysis.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        onClick={cancelAnalysis}
+                                        disabled={finishing}
+                                        className="shrink-0"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -806,49 +809,54 @@ export default function Home() {
                         }`}
                     >
                         <CardContent>
-                        <input {...getInputProps()} />
+                            <input {...getInputProps()} />
 
-                        <div className="flex items-baseline justify-between">
-                            <h2 className="text-xl font-semibold text-foreground">Uploaded files</h2>
-                            <p className="text-sm text-muted-foreground">
-                                {fileCount} of {MAX_FILES} · {formatBytes(totalBytes)}
-                            </p>
-                        </div>
-
-                        {lastRemoved && (
-                            <div className="mt-3 flex items-center justify-between rounded-lg bg-foreground px-4 py-2.5 text-sm text-background">
-                                <span className="truncate">Removed {lastRemoved.item.file.name}</span>
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    onClick={undoRemove}
-                                    className="ml-3 h-auto shrink-0 p-0 text-background underline"
-                                >
-                                    Undo
-                                </Button>
+                            <div className="flex items-baseline justify-between">
+                                <h2 className="text-xl font-semibold text-foreground">Uploaded files</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {fileCount} of {MAX_FILES} · {formatBytes(totalBytes)}
+                                </p>
                             </div>
-                        )}
 
-                        <div className="mt-4 divide-y">
-                            {inspection.files.map((item) => (
-                                <FileRow
-                                    key={item.id}
-                                    item={item}
-                                    onRemove={() => removeFile(item.id)}
-                                    onPreview={() => openPreview(item)}
-                                />
-                            ))}
-                        </div>
+                            {lastRemoved && (
+                                <div className="mt-3 flex items-center justify-between rounded-lg bg-foreground px-4 py-2.5 text-sm text-background">
+                                    <span className="truncate">Removed {lastRemoved.item.file.name}</span>
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        onClick={undoRemove}
+                                        className="ml-3 h-auto shrink-0 p-0 text-background underline"
+                                    >
+                                        Undo
+                                    </Button>
+                                </div>
+                            )}
 
-                        <div
-                            onClick={openFilePicker}
-                            className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5 text-sm hover:border-primary"
-                        >
+                            <div className="mt-4 divide-y">
+                                {inspection.files.map((item) => (
+                                    <FileRow
+                                        key={item.id}
+                                        item={item}
+                                        onRemove={() => removeFile(item.id)}
+                                        onPreview={() => openPreview(item)}
+                                    />
+                                ))}
+                            </div>
+
+                            <div
+                                onClick={openFilePicker}
+                                className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5 text-sm hover:border-primary"
+                            >
                             <span className="flex items-center gap-2 font-medium text-foreground">
                                 <Plus className="h-4 w-4 text-primary" />
                                 Add more files or drop here
                             </span>
-                            <span className="flex items-center gap-1 text-muted-foreground">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                <CameraCaptureChip
+                                    photoId="picker-camera-photo-more"
+                                    videoId="picker-camera-video-more"
+                                    onFiles={addFiles}
+                                />
                                 <FilePickerChip
                                     id="picker-video"
                                     icon={<Video className="h-4 w-4" />}
@@ -871,13 +879,13 @@ export default function Home() {
                                     onFiles={addFiles}
                                 />
                             </span>
-                        </div>
+                            </div>
 
-                        <div className="sticky bottom-4 z-10 mt-4 flex justify-end border-t bg-card/95 pt-4 backdrop-blur">
-                            <Button size="lg" onClick={analyseInspection} className="w-60">
-                                Create case &amp; analyse
-                            </Button>
-                        </div>
+                            <div className="sticky bottom-4 z-10 mt-4 flex justify-end border-t bg-card/95 pt-4 backdrop-blur">
+                                <Button size="lg" onClick={analyseInspection} className="w-60">
+                                    Create case &amp; analyse
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
@@ -929,10 +937,10 @@ export default function Home() {
 }
 
 function ProcessStep({
-    label,
-    state,
-    result,
-}: {
+                         label,
+                         state,
+                         result,
+                     }: {
     label: string;
     state: "done" | "active" | "pending";
     result?: string;
@@ -953,10 +961,10 @@ function ProcessStep({
 }
 
 function FileRow({
-    item,
-    onRemove,
-    onPreview,
-}: {
+                     item,
+                     onRemove,
+                     onPreview,
+                 }: {
     item: UploadedFile;
     onRemove: () => void;
     onPreview: () => void;
@@ -982,10 +990,10 @@ function FileRow({
 }
 
 function Thumb({
-    file,
-    previewUrl,
-    onClick,
-}: {
+                   file,
+                   previewUrl,
+                   onClick,
+               }: {
     file: File;
     previewUrl: string | null;
     onClick?: () => void;
@@ -1074,12 +1082,12 @@ function VideoThumb({ src }: { src: string }) {
 }
 
 function FilePickerChip({
-    id,
-    icon,
-    label,
-    accept,
-    onFiles,
-}: {
+                            id,
+                            icon,
+                            label,
+                            accept,
+                            onFiles,
+                        }: {
     id: string;
     icon: React.ReactNode;
     label: string;
@@ -1102,6 +1110,116 @@ function FilePickerChip({
                 type="file"
                 accept={accept}
                 multiple
+                className="hidden"
+                onChange={(e) => {
+                    onFiles(Array.from(e.target.files ?? []));
+                    e.target.value = "";
+                }}
+            />
+        </label>
+    );
+}
+
+// Native camera capture via the `capture` attribute. Mobile browsers (iOS
+// Safari, Chrome/Android) open the device camera directly instead of the
+// file picker; desktop browsers ignore `capture` and just fall back to a
+// normal file picker, so this degrades safely everywhere.
+//
+// IMPORTANT: `accept` has to be a single media type here. Mixing
+// "image/*,video/*" on one input makes most mobile browsers unable to
+// decide which capture UI to launch, so they silently fall back to the
+// generic file/photo chooser instead of opening the camera directly. Two
+// single-type inputs (one photo, one video) is what actually gets a direct
+// camera launch — same reason the library-upload chips are already split
+// into separate Photo/Video buttons rather than one combined one.
+//
+// `multiple` is deliberately left off both inputs — a native camera sheet
+// only ever hands back one shot per open on most platforms, and pairing
+// `multiple` with `capture` is inconsistently supported.
+function CameraCaptureChip({
+                               photoId,
+                               videoId,
+                               onFiles,
+                           }: {
+    photoId: string;
+    videoId: string;
+    onFiles: (files: File[]) => void;
+}) {
+    return (
+        <>
+            <label
+                htmlFor={photoId}
+                onClick={(e) => e.stopPropagation()}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+                <span className="text-primary">
+                    <Camera className="h-4 w-4" />
+                </span>
+                Take photo
+                <input
+                    id={photoId}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                        onFiles(Array.from(e.target.files ?? []));
+                        e.target.value = "";
+                    }}
+                />
+            </label>
+            <label
+                htmlFor={videoId}
+                onClick={(e) => e.stopPropagation()}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+                <span className="text-primary">
+                    <Video className="h-4 w-4" />
+                </span>
+                Record video
+                <input
+                    id={videoId}
+                    type="file"
+                    accept="video/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                        onFiles(Array.from(e.target.files ?? []));
+                        e.target.value = "";
+                    }}
+                />
+            </label>
+        </>
+    );
+}
+
+// Same idea as CameraCaptureChip, styled to match a size="lg" outline
+// Button for the empty dropzone state (sits next to "Choose Files" rather
+// than in a chip row). Styled directly as a <label> rather than wrapping
+// <Button>, since this project's Button doesn't support asChild/Slot
+// composition. Kept to a single "Use Camera" entry point here — it opens
+// the photo capture input, since stills are the more common inspection
+// shot; "Record video" stays available via the chip row once files exist.
+function CameraCaptureButton({
+                                 id,
+                                 onFiles,
+                             }: {
+    id: string;
+    onFiles: (files: File[]) => void;
+}) {
+    return (
+        <label
+            htmlFor={id}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border bg-background px-4 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+            <Camera className="h-4 w-4" />
+            Use Camera
+            <input
+                id={id}
+                type="file"
+                accept="image/*"
+                capture="environment"
                 className="hidden"
                 onChange={(e) => {
                     onFiles(Array.from(e.target.files ?? []));
