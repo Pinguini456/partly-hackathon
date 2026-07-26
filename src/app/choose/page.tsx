@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
+import { Card, CardContent } from "@/src/components/ui/card";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { Alert, AlertDescription } from "@/src/components/ui/alert";
 
 type Part = { id: string; name: string; eta: string; originalEta: string };
 type Option = { label: string; cost: number; readyDateISO: string; parts: Part[] };
@@ -58,8 +62,8 @@ export default function ChooseBasketPage() {
 
   if (missing) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-8 text-center">
-        <p className="text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-background p-8 text-center">
+        <p className="text-muted-foreground">
           No pending choice found. Go to the procurement page and click &quot;Send to customer to
           choose&quot;.
         </p>
@@ -81,47 +85,69 @@ export default function ChooseBasketPage() {
         : `Same date, ${costDiff < 0 ? "saves" : "costs"} $${Math.abs(costDiff)}.`;
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-2xl px-8 py-16">
-        <h1 className="text-xl font-semibold text-slate-900">Your repair — how would you like it handled?</h1>
-        <p className="mt-2 text-slate-500">Two options for finishing your repair.</p>
+        <h1 className="text-xl font-semibold text-foreground">
+          Your repair — how would you like it handled?
+        </h1>
+        <p className="mt-2 text-muted-foreground">Two options for finishing your repair.</p>
 
         <div className="mt-8 space-y-4">
-          <button
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => choose(recommended)}
-            className="block w-full rounded-xl border-2 border-indigo-500 bg-indigo-50 p-6 text-left hover:bg-indigo-100"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                choose(recommended);
+              }
+            }}
+            className="cursor-pointer ring-2 ring-primary transition-colors hover:bg-accent"
           >
-            <span className="inline-block rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
-              This is what we&apos;d pick
-            </span>
-            <p className="mt-3 text-3xl font-bold text-slate-900">${recommended.cost}</p>
-            <p className="text-slate-600">Ready {fmt(recommended.readyDateISO)}</p>
-          </button>
+            <CardContent>
+              <Badge>This is what we&apos;d pick</Badge>
+              <p className="mt-3 text-3xl font-bold text-foreground">${recommended.cost}</p>
+              <p className="text-muted-foreground">Ready {fmt(recommended.readyDateISO)}</p>
+            </CardContent>
+          </Card>
 
-          <button
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => choose(alternative)}
-            className="block w-full rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-shadow hover:shadow-md"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                choose(alternative);
+              }
+            }}
+            className="cursor-pointer transition-colors hover:bg-accent"
           >
-            <p className="text-3xl font-bold text-slate-900">${alternative.cost}</p>
-            <p className="text-slate-600">Ready {fmt(alternative.readyDateISO)}</p>
-            <p className="mt-2 text-sm text-slate-500">{altDescription}</p>
-          </button>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground">${alternative.cost}</p>
+              <p className="text-muted-foreground">Ready {fmt(alternative.readyDateISO)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{altDescription}</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="mt-8 flex items-start gap-3 rounded-lg border border-dashed border-slate-300 p-4">
-          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
-          <p className="text-sm text-slate-500">
+        <Alert className="mt-8">
+          <Clock />
+          <AlertDescription>
             If we don&apos;t hear back by <strong>{DEFAULT_DEADLINE}</strong>, we&apos;ll go with
             our pick above so the job keeps moving.
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
 
-        <button
+        <Button
+          variant="link"
+          size="sm"
           onClick={() => choose(recommended)}
-          className="mt-3 text-xs text-slate-400 underline hover:text-slate-600"
+          className="mt-3 px-0 text-muted-foreground"
         >
           Simulate: no reply by {DEFAULT_DEADLINE}
-        </button>
+        </Button>
       </div>
     </main>
   );

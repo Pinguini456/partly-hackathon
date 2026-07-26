@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Card, CardContent } from "@/src/components/ui/card";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { Alert, AlertDescription } from "@/src/components/ui/alert";
 
 type UploadResponse = {
     id: string[];
@@ -57,52 +61,57 @@ export default function TestPage() {
     }
 
     return (
-        <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
-            <h1>Upload Test</h1>
+        <div className="mx-auto max-w-3xl p-6">
+            <h1 className="text-2xl font-semibold text-foreground">Upload Test</h1>
 
-            <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
-                <input
+            <form onSubmit={handleSubmit} className="mt-6 flex items-center gap-3">
+                <Input
                     type="file"
                     multiple
                     accept="image/*,video/*"
                     onChange={(e) => setFiles(e.target.files)}
+                    className="max-w-sm"
                 />
-                <button type="submit" disabled={loading} style={{ marginLeft: 12 }}>
+                <Button type="submit" disabled={loading}>
                     {loading ? "Uploading..." : "Upload"}
-                </button>
+                </Button>
             </form>
 
-            {error && <p style={{ color: "red" }}>Error: {error}</p>}
+            {error && (
+                <Alert variant="destructive" className="mt-4">
+                    <AlertDescription>Error: {error}</AlertDescription>
+                </Alert>
+            )}
 
             {result && (
-                <div>
-                    <h2>Results</h2>
-                    {result.id.length === 0 && <p>No parts returned.</p>}
-                    {result.id.map((id, i) => (
-                        <div
-                            key={id}
-                            style={{
-                                border: "1px solid #ccc",
-                                borderRadius: 8,
-                                padding: 12,
-                                marginBottom: 12,
-                            }}
-                        >
-                            <p>
-                                <strong>ID:</strong> {id}
-                            </p>
-                            <p>
-                                <strong>Name:</strong> {result.name[i]}
-                            </p>
-                            {result.image[i] && (
-                                <img
-                                    src={result.image[i]}
-                                    alt={result.name[i]}
-                                    style={{ maxWidth: "100%", height: "auto" }}
-                                />
-                            )}
-                        </div>
-                    ))}
+                <div className="mt-6">
+                    <h2 className="text-lg font-semibold text-foreground">Results</h2>
+                    {result.id.length === 0 && (
+                        <p className="mt-2 text-muted-foreground">No parts returned.</p>
+                    )}
+                    <div className="mt-3 space-y-3">
+                        {result.id.map((id, i) => (
+                            <Card key={id}>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">
+                                        <strong className="text-foreground">ID:</strong> {id}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        <strong className="text-foreground">Name:</strong>{" "}
+                                        {result.name[i]}
+                                    </p>
+                                    {result.image[i] && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={result.image[i]}
+                                            alt={result.name[i]}
+                                            className="mt-3 h-auto max-w-full rounded-md"
+                                        />
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

@@ -230,6 +230,7 @@ export async function POST(req: NextRequest) {
             id: partsIds,
             name: names,
             image: webp,
+            vehicle: make,
         });
     } catch (err) {
         console.error(err);

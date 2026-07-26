@@ -26,7 +26,7 @@ export default function StaffNav() {
 
   return (
     <nav className="border-b bg-slate-900">
-      <div className="mx-auto flex max-w-6xl items-center gap-1 px-8 py-3 text-sm">
+      <div className="flex items-center gap-1 px-8 py-3 text-sm">
         <span className="mr-6 flex items-center gap-2 font-semibold text-white">
           <span className="h-2 w-2 rounded-full bg-indigo-500" />
           Repair Copilot

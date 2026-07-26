@@ -1,56 +1,72 @@
+import { Check } from "lucide-react";
+
+type StepState = "done" | "active" | "next" | "upcoming";
+
+const STEPS: { number: 1 | 2 | 3 | 4; text: string }[] = [
+    { number: 1, text: "Upload" },
+    { number: 2, text: "Analyse" },
+    { number: 3, text: "Review" },
+    { number: 4, text: "Repair Order" },
+];
+
 export function WorkflowSteps({ current }: { current: 1 | 2 | 3 | 4 }) {
     return (
-        <div className="mb-10 flex items-center gap-4">
-            <Step number="1" text="Upload" active={current === 1} />
-
-            <div className="h-px flex-1 bg-slate-200" />
-
-            <Step number="2" text="Analyse" active={current === 2} />
-
-            <div className="h-px flex-1 bg-slate-200" />
-
-            <Step number="3" text="Review" active={current === 3} />
-
-            <div className="h-px flex-1 bg-slate-200" />
-
-            <Step number="4" text="Repair Order" active={current === 4} />
+        <div className="mx-auto mb-8 flex max-w-[700px] items-center gap-3">
+            {STEPS.map((step, i) => {
+                const state: StepState =
+                    step.number < current
+                        ? "done"
+                        : step.number === current
+                          ? "active"
+                          : step.number === current + 1
+                            ? "next"
+                            : "upcoming";
+                return (
+                    // display:contents so the step and its trailing connector both
+                    // participate directly in the parent flex row, without adding
+                    // an extra box that would throw off the connector widths.
+                    <div key={step.number} className="contents">
+                        <Step number={step.number} text={step.text} state={state} />
+                        {i < STEPS.length - 1 && <div className="h-px flex-1 bg-border" />}
+                    </div>
+                );
+            })}
         </div>
     );
 }
 
 function Step({
-                  number,
-                  text,
-                  active,
-              }: {
-    number: string;
+    number,
+    text,
+    state,
+}: {
+    number: number;
     text: string;
-    active?: boolean;
+    state: StepState;
 }) {
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
             <div
-                className={`
-        flex
-        h-8
-        w-8
-        items-center
-        justify-center
-        rounded-full
-        text-sm
-        font-medium
-
-        ${
-                    active
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                }
-        `}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                    state === "active"
+                        ? "bg-primary text-primary-foreground"
+                        : state === "done"
+                          ? "bg-accent text-primary"
+                          : state === "next"
+                            ? "border-2 border-primary/40 bg-card text-primary"
+                            : "bg-secondary text-secondary-foreground"
+                }`}
             >
-                {number}
+                {state === "done" ? <Check className="h-4 w-4" /> : number}
             </div>
 
-            <span className="text-sm text-slate-700">{text}</span>
+            <span
+                className={`whitespace-nowrap text-sm ${
+                    state === "upcoming" ? "text-muted-foreground" : "text-foreground"
+                }`}
+            >
+                {text}
+            </span>
         </div>
     );
 }

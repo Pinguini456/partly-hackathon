@@ -11,6 +11,12 @@ import {
     MessageCircle,
     Clock,
 } from "lucide-react";
+import { Card, CardContent } from "@/src/components/ui/card";
+import { Button } from "@/src/components/ui/button";
+import { Badge } from "@/src/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/src/components/ui/alert";
+import { Checkbox } from "@/src/components/ui/checkbox";
+import { Label } from "@/src/components/ui/label";
 
 // --- Gating-part scheduling logic -------------------------------------
 
@@ -119,17 +125,14 @@ export default function RepairTimelinePage() {
 
     if (missing) {
         return (
-            <main className="flex min-h-screen items-center justify-center bg-slate-50 p-8 text-center">
+            <main className="flex min-h-screen items-center justify-center bg-background p-8 text-center">
                 <div>
-                    <p className="text-slate-500">
+                    <p className="text-muted-foreground">
                         No order found. Place an order first to see its live repair timeline.
                     </p>
-                    <button
-                        onClick={() => router.push("/order")}
-                        className="mt-6 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-700"
-                    >
+                    <Button size="lg" onClick={() => router.push("/order")} className="mt-6">
                         Back to order
-                    </button>
+                    </Button>
                 </div>
             </main>
         );
@@ -203,21 +206,22 @@ export default function RepairTimelinePage() {
     const inBayEta = nextWorkingDay(new Date(eta(gating) + dayMs));
 
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-background">
             <div className="mx-auto max-w-6xl px-8 py-10">
-                <h1 className="text-2xl font-semibold text-slate-900">Live Repair Timeline</h1>
-                <p className="mt-1 text-slate-500">
+                <h1 className="text-2xl font-semibold text-foreground">Live Repair Timeline</h1>
+                <p className="mt-1 text-muted-foreground">
                     Pickup date is set by whichever part is running latest — the others have room to
                     run a little late too, without pushing pickup back.
                 </p>
 
                 <div className="mt-8 grid gap-6 md:grid-cols-2">
                     {/* Staff panel */}
-                    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h2 className="text-lg font-semibold text-slate-900">Shop staff view</h2>
+                    <Card>
+                        <CardContent>
+                        <h2 className="text-lg font-semibold text-foreground">Shop staff view</h2>
 
                         <div className="mt-5">
-                            <h3 className="text-sm font-semibold text-slate-700">Parts on order</h3>
+                            <h3 className="text-sm font-semibold text-foreground">Parts on order</h3>
                             <div className="mt-2 space-y-2">
                                 {parts.map((part) => {
                                     const isGating = part.id === gating.id;
@@ -227,12 +231,12 @@ export default function RepairTimelinePage() {
                                         <div
                                             key={part.id}
                                             className={`rounded-lg border p-3 ${
-                                                isGating ? "border-amber-300 bg-amber-50" : "border-slate-200"
+                                                isGating ? "border-amber-300 bg-amber-50" : ""
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium text-slate-900">
+                          <span className="text-sm font-medium text-foreground">
                             {part.name}
                           </span>
                                                     {isGating ? (
@@ -240,12 +244,12 @@ export default function RepairTimelinePage() {
                               Sets the pickup date
                             </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                                                        <Badge variant="secondary">
                               Can run {partSlack}d late, no impact
-                            </span>
+                            </Badge>
                                                     )}
                                                 </div>
-                                                <span className="text-xs text-slate-500">
+                                                <span className="text-xs text-muted-foreground">
                           ETA {fmt(new Date(part.eta))}
                                                     {slipped && (
                                                         <span className="ml-1 text-amber-600">
@@ -255,18 +259,20 @@ export default function RepairTimelinePage() {
                         </span>
                                             </div>
                                             <div className="mt-2 flex gap-2">
-                                                <button
+                                                <Button
+                                                    variant="outline"
+                                                    size="xs"
                                                     onClick={() => delayPart(part.id, 1)}
-                                                    className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                                                 >
                                                     Delay 1 day
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="xs"
                                                     onClick={() => delayPart(part.id, 3)}
-                                                    className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                                                 >
                                                     Delay 3 days
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     );
@@ -274,14 +280,16 @@ export default function RepairTimelinePage() {
                             </div>
                         </div>
 
-                        <label className="mt-5 flex items-center gap-2 text-sm text-slate-700">
-                            <input
-                                type="checkbox"
+                        <div className="mt-5 flex items-center gap-2">
+                            <Checkbox
+                                id="notify-on-stage"
                                 checked={notifyOnStage}
-                                onChange={(e) => setNotifyOnStage(e.target.checked)}
+                                onCheckedChange={(checked) => setNotifyOnStage(checked === true)}
                             />
-                            Notify customer on stage updates
-                        </label>
+                            <Label htmlFor="notify-on-stage" className="text-sm text-foreground">
+                                Notify customer on stage updates
+                            </Label>
+                        </div>
 
                         <div className="mt-3 space-y-3">
                             {MANUAL_STAGES.map((stage) => {
@@ -291,52 +299,52 @@ export default function RepairTimelinePage() {
                                     <div
                                         key={stage.key}
                                         className={`rounded-lg border p-4 ${
-                                            done ? "border-green-200 bg-green-50" : isNext ? "border-indigo-300" : "opacity-50"
+                                            done ? "border-green-200 bg-green-50" : isNext ? "border-primary" : "opacity-50"
                                         }`}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <span className="font-medium text-slate-900">{stage.label}</span>
+                                            <span className="font-medium text-foreground">{stage.label}</span>
                                             {done && (
-                                                <span className="text-xs text-slate-500">{done.toLocaleTimeString()}</span>
+                                                <span className="text-xs text-muted-foreground">{done.toLocaleTimeString()}</span>
                                             )}
                                         </div>
                                         {isNext && (
-                                            <button
+                                            <Button
                                                 onClick={() => completeManualStage(stage.key)}
-                                                className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                                                className="mt-3"
                                             >
                                                 {stage.actionLabel}
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                 );
                             })}
                         </div>
-                    </section>
+                        </CardContent>
+                    </Card>
 
                     {/* Customer panel */}
-                    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h2 className="text-lg font-semibold text-slate-900">Customer view</h2>
+                    <Card>
+                        <CardContent>
+                        <h2 className="text-lg font-semibold text-foreground">Customer view</h2>
 
                         <div className="mt-4 flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-slate-900">{fmt(currentReadyDate)}</span>
+                            <span className="text-2xl font-bold text-foreground">{fmt(currentReadyDate)}</span>
                             {hasSlip && (
-                                <span className="text-slate-400 line-through">{fmt(originalReadyDate)}</span>
+                                <span className="text-muted-foreground line-through">{fmt(originalReadyDate)}</span>
                             )}
                         </div>
 
                         {hasSlip && (
-                            <div className="mt-3 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                                <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                                <div>
-                                    <p className="text-sm font-medium text-amber-800">
-                                        {gating.name} delayed {gatingDelayDays} day{gatingDelayDays === 1 ? "" : "s"}
-                                    </p>
-                                    <p className="text-xs text-amber-700">
-                                        Everything else is on track — pickup moves with this part.
-                                    </p>
-                                </div>
-                            </div>
+                            <Alert className="mt-3 border-amber-300 bg-amber-50">
+                                <Clock className="text-amber-600" />
+                                <AlertTitle className="text-amber-800">
+                                    {gating.name} delayed {gatingDelayDays} day{gatingDelayDays === 1 ? "" : "s"}
+                                </AlertTitle>
+                                <AlertDescription className="text-amber-700">
+                                    Everything else is on track — pickup moves with this part.
+                                </AlertDescription>
+                            </Alert>
                         )}
 
                         <div className="mt-5 space-y-4">
@@ -372,29 +380,30 @@ export default function RepairTimelinePage() {
                             />
                         </div>
 
-                        <div className="mt-8 rounded-xl border bg-white p-4 shadow-sm">
-                            <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                                <MessageCircle className="h-4 w-4 text-indigo-600" />
+                        <div className="mt-8 rounded-xl border p-4">
+                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                <MessageCircle className="h-4 w-4 text-primary" />
                                 Text messages
                             </div>
                             <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
                                 {notifications.length === 0 && (
-                                    <p className="text-sm text-slate-500">No messages sent yet.</p>
+                                    <p className="text-sm text-muted-foreground">No messages sent yet.</p>
                                 )}
                                 {notifications.map((n, i) => (
                                     <div
                                         key={i}
-                                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                                        className="rounded-lg border bg-muted px-3 py-2 text-sm text-foreground"
                                     >
                                         {n.text}
-                                        <div className="mt-1 text-[10px] text-slate-400">
+                                        <div className="mt-1 text-[10px] text-muted-foreground">
                                             {n.at.toLocaleTimeString()}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                    </section>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </main>
@@ -414,11 +423,11 @@ function TimelineRow({
 }) {
     const icon =
         status === "done" ? (
-            <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
         ) : status === "current" ? (
             activeIcon
         ) : (
-            <Circle className="h-5 w-5 shrink-0 text-slate-300" />
+            <Circle className="h-5 w-5 shrink-0 text-muted-foreground/40" />
         );
 
     return (
@@ -428,15 +437,15 @@ function TimelineRow({
                 <p
                     className={`font-medium ${
                         status === "done"
-                            ? "text-slate-500"
+                            ? "text-muted-foreground"
                             : status === "current"
-                                ? "text-indigo-700"
-                                : "text-slate-400"
+                                ? "text-primary"
+                                : "text-muted-foreground/70"
                     }`}
                 >
                     {label}
                 </p>
-                {date && <p className="text-xs text-slate-500">{fmt(date)}</p>}
+                {date && <p className="text-xs text-muted-foreground">{fmt(date)}</p>}
             </div>
         </div>
     );
