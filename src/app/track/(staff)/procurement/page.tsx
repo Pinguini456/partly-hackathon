@@ -6,6 +6,7 @@ import { AlertTriangle, ShieldCheck } from "lucide-react";
 import {
   CATALOGUE,
   PART_KEYS,
+  PartKey,
   Basket,
   buildBaskets,
   paretoFrontier,
@@ -14,9 +15,13 @@ import {
   basketToTimelineParts,
   fmt,
   daysBetween,
+  dayMs,
+  eta,
   DEFAULT_BUDGET,
   DEFAULT_TARGET,
 } from "@/src/lib/procurement";
+import { ASSEMBLY_CHOICES } from "@/src/lib/assemblyOptions";
+import { AssemblyChoiceCard } from "@/src/components/AssemblyChoiceCard";
 
 export default function ProcurementPage() {
   const router = useRouter();
@@ -99,6 +104,21 @@ export default function ProcurementPage() {
   });
   const gridCols =
     presets.length === 1 ? "md:grid-cols-1" : presets.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
+
+  // Assembly-vs-build-up is a purchasing decision one level down the OEM
+  // tree from whichever part is in the basket above — gating/slack here is
+  // relative to the same recommended basket, not a separate solver run.
+  const assemblyChoices = (Object.keys(ASSEMBLY_CHOICES) as PartKey[]).map((key) => {
+    const othersGatingEta = Math.max(
+      ...PART_KEYS.filter((k) => k !== key).map((k) => eta(bestValue.chosen[k])),
+    );
+    const partEta = eta(bestValue.chosen[key]);
+    const isGatingPart = bestValue.gatingPart === key;
+    const slackDays = isGatingPart
+      ? 0
+      : Math.max(0, Math.round((othersGatingEta - partEta) / dayMs));
+    return { choice: ASSEMBLY_CHOICES[key]!, isGatingPart, slackDays };
+  });
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -286,6 +306,20 @@ export default function ProcurementPage() {
           {allBaskets.length} baskets evaluated, {frontier.length} on the Pareto frontier (
           {presets.length} shown above). Everything else was worse on both cost and date.
         </p>
+
+        {assemblyChoices.length > 0 && (
+          <div className="mt-6 space-y-4">
+            {assemblyChoices.map(({ choice, isGatingPart, slackDays }) => (
+              <AssemblyChoiceCard
+                key={choice.partKey}
+                choice={choice}
+                jobType={jobType}
+                isGatingPart={isGatingPart}
+                slackDays={slackDays}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
