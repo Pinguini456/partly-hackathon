@@ -103,6 +103,21 @@ export default function OrderPage() {
         ? Math.max(...Object.values(storeShippingDays))
         : 0;
 
+    // Each part's ETA is estimated from its supplier's shipping time, counted
+    // from the moment the order is placed. The timeline page uses this to
+    // compute pickup date, so both start out equal (no slip yet).
+    function placeOrder() {
+        const dayMs = 86400000;
+        const orderedParts = orderLines.map(({ part, option }) => {
+            const etaISO = new Date(Date.now() + option.shippingDays * dayMs)
+                .toISOString()
+                .slice(0, 10);
+            return { id: part.id, name: part.name, eta: etaISO, originalEta: etaISO };
+        });
+        sessionStorage.setItem("partly:orderedParts", JSON.stringify(orderedParts));
+        router.push("/repair-timeline");
+    }
+
     if (missing) {
         return (
             <main className="flex min-h-screen items-center justify-center bg-slate-50 p-8 text-center">
@@ -306,6 +321,7 @@ export default function OrderPage() {
 
                             <button
                                 type="button"
+                                onClick={placeOrder}
                                 className="mt-6 w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700"
                             >
                                 Place Order
