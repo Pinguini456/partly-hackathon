@@ -166,21 +166,21 @@ export async function POST(req: NextRequest) {
 
         for (const video of videos) {
             try {
-               const speechFormData = new FormData();
-               speechFormData.append("video", video, video.name);
+                const speechFormData = new FormData();
+                speechFormData.append("video", video, video.name);
 
-               const speechRes = await fetch(absoluteUrl(req, SPEECH_API), {
-                   method: "POST",
-                   body: speechFormData,
-               });
+                const speechRes = await fetch(absoluteUrl(req, SPEECH_API), {
+                    method: "POST",
+                    body: speechFormData,
+                });
 
-               const speechData = await speechRes.json();
+                const speechData = await speechRes.json();
 
-               transcripts.push({
-                   fileName: video.name,
-                   text: speechData.text,
-                   error: speechData.error,
-               });
+                transcripts.push({
+                    fileName: video.name,
+                    text: speechData.text,
+                    error: speechData.error,
+                });
             } catch (err) {
                 console.error("speech to text failed: ", err);
                 transcripts.push({ fileName: video.name, error: "transcript failed" });
@@ -207,11 +207,27 @@ export async function POST(req: NextRequest) {
 
             names = await Promise.all(
                 partsIds.map(async (p) => {
-                    const res = await getPartById(p, make as string)
+                        const res = await getPartById(p, make as string)
 
-                    return res.name;
-                }
-            ));
+                        return res.name;
+                    }
+                ));
+
+            // Some assemblies map to the same display name (e.g. left/right
+            // variants) — keep only the first occurrence of each name so the
+            // customer doesn't see the same part listed twice.
+            const seenNames = new Set<string>();
+            const dedupedIndices = names
+                .map((name, i) => ({ name, i }))
+                .filter(({ name }) => {
+                    if (seenNames.has(name)) return false;
+                    seenNames.add(name);
+                    return true;
+                })
+                .map(({ i }) => i);
+
+            partsIds = dedupedIndices.map((i) => partsIds[i]);
+            names = dedupedIndices.map((i) => names[i]);
 
             webp = await Promise.all(
                 partsIds.map(async (p, i) => {
