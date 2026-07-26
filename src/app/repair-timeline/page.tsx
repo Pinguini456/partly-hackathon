@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     CheckCircle2,
     Circle,
@@ -10,7 +10,9 @@ import {
     KeyRound,
     MessageCircle,
     Clock,
+    LayoutGrid,
 } from "lucide-react";
+import { getOrder, newOrderId, saveOrder, updateOrder } from "@/src/lib/orderStore";
 
 // --- Gating-part scheduling logic -------------------------------------
 
@@ -75,18 +77,49 @@ function fmt(date: Date) {
 type Notification = { text: string; at: Date };
 
 export default function RepairTimelinePage() {
+    return (
+        <Suspense fallback={null}>
+            <RepairTimelineContent />
+        </Suspense>
+    );
+}
+
+function RepairTimelineContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const orderId = searchParams.get("order");
 
     const [parts, setParts] = useState<Part[] | null>(null);
     const [missing, setMissing] = useState(false);
+    const [notFound, setNotFound] = useState(false);
     const [originalReadyDate, setOriginalReadyDate] = useState<Date | null>(null);
     const [doneAt, setDoneAt] = useState<Partial<Record<ManualStage, Date>>>({});
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [notifyOnStage, setNotifyOnStage] = useState(true);
 
-    // Pull in whatever the order page just placed. Damage assessment and
-    // parts-ordering already happened to get here, so both stages start done.
+    // Two ways to land here: with an ?order= id (from the dashboard, or a
+    // fresh redirect straight after placing an order), or with none — the
+    // older direct-from-sessionStorage path. Either way we end up with a
+    // localStorage-backed order so the dashboard can list and delete it.
     useEffect(() => {
+        if (orderId) {
+            const stored = getOrder(orderId);
+            if (!stored) {
+                setNotFound(true);
+                return;
+            }
+            setParts(stored.parts);
+            setOriginalReadyDate(new Date(stored.originalReadyDate));
+            setDoneAt(
+                Object.fromEntries(
+                    Object.entries(stored.doneAt).map(([stage, iso]) => [stage, new Date(iso as string)])
+                ) as Partial<Record<ManualStage, Date>>
+            );
+            setNotifications(stored.notifications.map((n) => ({ text: n.text, at: new Date(n.at) })));
+            setNotifyOnStage(stored.notifyOnStage);
+            return;
+        }
+
         const raw = sessionStorage.getItem("partly:orderedParts");
         if (!raw) {
             setMissing(true);
@@ -98,11 +131,11 @@ export default function RepairTimelinePage() {
                 setMissing(true);
                 return;
             }
-            setParts(orderedParts);
-            setOriginalReadyDate(nextWorkingDay(readyDate(orderedParts, LABOUR_DAYS)));
+
+            const initialReadyDate = nextWorkingDay(readyDate(orderedParts, LABOUR_DAYS));
             const now = new Date();
-            setDoneAt({ damage_assessed: now, parts_ordered: now });
-            setNotifications([
+            const initialDoneAt = { damage_assessed: now, parts_ordered: now };
+            const initialNotifications: Notification[] = [
                 {
                     text: "Hi! We've assessed the damage and are putting together your job card.",
                     at: now,
@@ -111,11 +144,85 @@ export default function RepairTimelinePage() {
                     text: "Good news — the parts needed for your repair have been ordered.",
                     at: now,
                 },
-            ]);
+            ];
+
+            setParts(orderedParts);
+            setOriginalReadyDate(initialReadyDate);
+            setDoneAt(initialDoneAt);
+            setNotifications(initialNotifications);
+
+            // Persist as a real order and move to the ?order= URL, so a
+            // refresh (or a trip to the dashboard and back) doesn't lose it.
+            const id = newOrderId();
+            saveOrder({
+                id,
+                createdAt: now.toISOString(),
+                vehicleLabel: "Repair order",
+                plate: "",
+                parts: orderedParts,
+                total: 0,
+                storeCount: 0,
+                originalReadyDate: initialReadyDate.toISOString(),
+                doneAt: {
+                    damage_assessed: now.toISOString(),
+                    parts_ordered: now.toISOString(),
+                },
+                notifications: initialNotifications.map((n) => ({ text: n.text, at: n.at.toISOString() })),
+                notifyOnStage: true,
+            });
+            sessionStorage.removeItem("partly:orderedParts");
+            router.replace(`/repair-timeline?order=${id}`);
         } catch {
             setMissing(true);
         }
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderId]);
+
+    // Keep the stored order in sync with every change made here, so the
+    // dashboard card (status, ready date, messages) never goes stale.
+    useEffect(() => {
+        if (!orderId || !parts) return;
+        updateOrder(orderId, { parts });
+    }, [orderId, parts]);
+
+    useEffect(() => {
+        if (!orderId) return;
+        updateOrder(orderId, {
+            doneAt: Object.fromEntries(
+                Object.entries(doneAt).map(([stage, date]) => [stage, (date as Date).toISOString()])
+            ),
+        });
+    }, [orderId, doneAt]);
+
+    useEffect(() => {
+        if (!orderId) return;
+        updateOrder(orderId, {
+            notifications: notifications.map((n) => ({ text: n.text, at: n.at.toISOString() })),
+        });
+    }, [orderId, notifications]);
+
+    useEffect(() => {
+        if (!orderId) return;
+        updateOrder(orderId, { notifyOnStage });
+    }, [orderId, notifyOnStage]);
+
+    if (notFound) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-slate-50 p-8 text-center">
+                <div>
+                    <p className="text-slate-500">
+                        This order couldn&apos;t be found — it may have been deleted.
+                    </p>
+                    <button
+                        onClick={() => router.push("/dashboard")}
+                        className="mt-6 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-700"
+                    >
+                        Back to dashboard
+                    </button>
+                </div>
+            </main>
+        );
+    }
 
     if (missing) {
         return (
@@ -124,12 +231,20 @@ export default function RepairTimelinePage() {
                     <p className="text-slate-500">
                         No order found. Place an order first to see its live repair timeline.
                     </p>
-                    <button
-                        onClick={() => router.push("/order")}
-                        className="mt-6 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-700"
-                    >
-                        Back to order
-                    </button>
+                    <div className="mt-6 flex items-center justify-center gap-3">
+                        <button
+                            onClick={() => router.push("/order")}
+                            className="rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-700"
+                        >
+                            Back to order
+                        </button>
+                        <button
+                            onClick={() => router.push("/dashboard")}
+                            className="rounded-lg border border-slate-200 px-6 py-3 font-medium text-slate-700 hover:border-indigo-300"
+                        >
+                            View dashboard
+                        </button>
+                    </div>
                 </div>
             </main>
         );
@@ -205,6 +320,15 @@ export default function RepairTimelinePage() {
     return (
         <main className="min-h-screen bg-slate-50">
             <div className="mx-auto max-w-6xl px-8 py-10">
+                {orderId && (
+                    <button
+                        onClick={() => router.push("/dashboard")}
+                        className="mb-4 flex items-center gap-1.5 text-sm text-slate-500 hover:text-indigo-600"
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                        Back to dashboard
+                    </button>
+                )}
                 <h1 className="text-2xl font-semibold text-slate-900">Live Repair Timeline</h1>
                 <p className="mt-1 text-slate-500">
                     Pickup date is set by whichever part is running latest — the others have room to

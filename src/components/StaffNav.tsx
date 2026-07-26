@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Create" },
-  { href: "/track", label: "Orders" },
+  { href: "/dashboard", label: "Orders" },
 ];
 
 // A route "owns" a nav link if it's that link's href or a sub-route of it —

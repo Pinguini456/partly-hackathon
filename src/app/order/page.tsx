@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Package, Star, Store, Truck } from "lucide-react";
 import { WorkflowSteps } from "@/src/components/WorkflowSteps";
 import { buildOptions, SupplierOption } from "@/src/lib/supplierOptions";
+import { newOrderId, saveOrder } from "@/src/lib/orderStore";
+
+// No supplier delivers and no shop works a weekend — roll the promised
+// pickup date forward off Sat/Sun rather than doing naive calendar-day math.
+function nextWorkingDay(date: Date) {
+    const d = new Date(date);
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+        d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return d;
+}
 
 type PartsResponse = {
     id: string[];
@@ -115,7 +126,35 @@ export default function OrderPage() {
             return { id: part.id, name: part.name, eta: etaISO, originalEta: etaISO };
         });
         sessionStorage.setItem("partly:orderedParts", JSON.stringify(orderedParts));
-        router.push("/repair-timeline");
+
+        // Also persist the order itself (no database — everything lives in
+        // the browser) so it shows up as a card on the dashboard, and so the
+        // timeline page can be revisited later and still find it.
+        const LABOUR_DAYS = 2;
+        const gatingEta = Math.max(...orderedParts.map((p) => +new Date(p.eta)));
+        const originalReadyDate = nextWorkingDay(
+            new Date(gatingEta + LABOUR_DAYS * dayMs)
+        ).toISOString();
+
+        const id = newOrderId();
+        saveOrder({
+            id,
+            createdAt: new Date().toISOString(),
+            vehicleLabel:
+                orderLines[0]?.part.name && orderLines.length > 1
+                    ? `${orderLines[0].part.name} + ${orderLines.length - 1} more`
+                    : orderLines[0]?.part.name ?? "Repair order",
+            plate: "",
+            parts: orderedParts,
+            total: orderTotal,
+            storeCount: Object.keys(groupedByStore).length,
+            originalReadyDate,
+            doneAt: {},
+            notifications: [],
+            notifyOnStage: true,
+        });
+
+        router.push(`/repair-timeline?order=${id}`);
     }
 
     if (missing) {
