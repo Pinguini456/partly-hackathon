@@ -23,6 +23,9 @@ import { Button } from "@/src/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/src/components/ui/alert";
 import { Progress } from "@/src/components/ui/progress";
 import { Dialog, DialogContent, DialogTitle } from "@/src/components/ui/dialog";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
+import { VEHICLES } from "@/src/lib/vehicles";
 
 type UploadedFile = { id: string; file: File; previewUrl: string | null };
 
@@ -86,6 +89,13 @@ export default function Home() {
     const [lastRemoved, setLastRemoved] = useState<RemovedFile | null>(null);
     const [preview, setPreview] = useState<PreviewTarget | null>(null);
     const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // The case this intake builds. Captured up front so the upload is
+    // attached to a customer and a job from the first second, rather than
+    // being an anonymous parts lookup we retrofit an owner onto later.
+    const [customerName, setCustomerName] = useState("");
+    const [customerContact, setCustomerContact] = useState("");
+    const [vehicleSlug, setVehicleSlug] = useState("");
 
     const [elapsedMs, setElapsedMs] = useState(0);
     const [stepResults, setStepResults] = useState<Partial<Record<StepKey, string>>>({});
@@ -200,8 +210,42 @@ export default function Home() {
 
         const formData = new FormData();
         inspection.files.forEach(({ file }) => formData.append("files", file));
+        if (vehicleSlug) formData.append("vehicleSlug", vehicleSlug);
 
         try {
+            // Create the case before analysis, before we even know the
+            // vehicle — so a slow or interrupted upload still leaves a real,
+            // resumable job rather than nothing.
+            const caseRes = await fetch("/api/cases", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    customer_name: customerName || null,
+                    customer_contact: customerContact || null,
+                }),
+            });
+            const caseData = await caseRes.json();
+            if (!caseRes.ok || !caseData.id) {
+                throw new Error(caseData.error ?? "Failed to create case");
+            }
+            const caseId = caseData.id as string;
+
+            // Persist the media against the case. Best-effort: a storage
+            // hiccup shouldn't cost the repairer the analysis they're
+            // standing there waiting for.
+            await Promise.all(
+                inspection.files.map(async ({ file }) => {
+                    try {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        fd.append("inspection_id", caseId);
+                        await fetch("/api/file_upload", { method: "POST", body: fd });
+                    } catch (e) {
+                        console.error("file persistence failed", e);
+                    }
+                }),
+            );
+
             const response = await fetch("/api/main", {
                 method: "POST",
                 body: formData,
@@ -219,13 +263,37 @@ export default function Home() {
                 return;
             }
 
-            if (data.vehicle) setStepResults({ identify: data.vehicle });
+            if (data.vehicle) {
+                const label = VEHICLES.find((v) => v.slug === data.vehicle)?.label;
+                setStepResults({ identify: label ?? data.vehicle });
+            }
+
+            // Fold the analysis into the case record — this is what makes it
+            // one pipeline rather than two features that happen to run in
+            // sequence.
+            await fetch(`/api/cases/${caseId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    vehicle_slug: data.vehicle ?? null,
+                    transcript: data.transcript ?? null,
+                    parts: {
+                        id: data.id,
+                        name: data.name,
+                        image: data.image,
+                        freeform: data.freeform,
+                    },
+                    status: "parts_identified",
+                }),
+            });
+
             setFinishing(true);
+            // Kept as a fallback for any screen not yet reached by a case id.
             sessionStorage.setItem("partly:parts", JSON.stringify(data));
             // Let the checklist land on "all done" for a beat instead of
             // yanking the page away the instant the response arrives.
             await new Promise((resolve) => setTimeout(resolve, 900));
-            router.push("/parts");
+            router.push(`/cases/${caseId}`);
         } catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") {
                 setInspection((prev) => (prev ? { ...prev, status: "uploaded" } : prev));
@@ -255,14 +323,72 @@ export default function Home() {
     return (
         <main className="min-h-screen bg-background text-foreground">
             <div className="mx-auto max-w-[800px] px-8 py-8">
-                <h1 className="text-2xl font-semibold text-foreground">New inspection</h1>
+                <h1 className="text-2xl font-semibold text-foreground">New case</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Convert vehicle inspections into repair orders.
+                    Start a job file for the car in front of you — everything else hangs off it.
                 </p>
 
                 <div className="mt-8">
                     <WorkflowSteps current={analysing ? 2 : 1} />
                 </div>
+
+                {/* Customer details — captured before the upload, because the
+                    files are evidence attached to someone's car, not a
+                    standalone parts query. */}
+                {!analysing && (
+                    <Card className="mb-6">
+                        <CardContent>
+                            <h2 className="text-lg font-semibold text-foreground">Customer</h2>
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="customer-name">Name</Label>
+                                    <Input
+                                        id="customer-name"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        placeholder="Joe Smith"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="customer-contact">Phone or email</Label>
+                                    <Input
+                                        id="customer-contact"
+                                        value={customerContact}
+                                        onChange={(e) => setCustomerContact(e.target.value)}
+                                        placeholder="027 123 4567"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-1.5">
+                                <Label htmlFor="vehicle-slug">
+                                    Vehicle{" "}
+                                    <span className="font-normal text-muted-foreground">
+                                        — optional, we read the plate off your photos
+                                    </span>
+                                </Label>
+                                <select
+                                    id="vehicle-slug"
+                                    value={vehicleSlug}
+                                    onChange={(e) => setVehicleSlug(e.target.value)}
+                                    className="h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                >
+                                    <option value="">Detect from photos</option>
+                                    {VEHICLES.map((v) => (
+                                        <option key={v.slug} value={v.slug}>
+                                            {v.label} · {v.plate}
+                                            {v.hasCatalogue ? "" : " (no parts catalogue)"}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-muted-foreground">
+                                    Set this when the plate isn&apos;t in shot — a walkaround video
+                                    often never shows it.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Upload controls — hidden during analysis so there's nothing
                     left clickable that could change the files mid-run. */}
@@ -481,7 +607,7 @@ export default function Home() {
 
                         <div className="sticky bottom-4 z-10 mt-4 flex justify-end border-t bg-card/95 pt-4 backdrop-blur">
                             <Button size="lg" onClick={analyseInspection} className="w-60">
-                                Analyse Inspection
+                                Create case &amp; analyse
                             </Button>
                         </div>
                         </CardContent>

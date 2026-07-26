@@ -134,11 +134,15 @@ export async function POST(req: NextRequest) {
         const images = files.filter((f) => f.type.startsWith("image/"));
         const videos = files.filter((f) => f.type.startsWith("video/"));
 
-        let make: string | null = null;
-        let imagesChecked = 0;
+        // An explicit vehicle from the case form wins over plate detection:
+        // the walkaround frames often don't show a readable plate, and a
+        // repairer standing at the car already knows what it is.
+        const vehicleOverride = formData.get("vehicleSlug");
+        let make: string | null =
+            typeof vehicleOverride === "string" && vehicleOverride ? vehicleOverride : null;
 
         for (const image of images) {
-            imagesChecked++;
+            if (make) break;
             const imageBase64 = await fileToBase64(image);
 
             try {
@@ -190,7 +194,7 @@ export async function POST(req: NextRequest) {
         let names: string[] = [];
         let webp: string[] = [];
         let partsIds: string[] = [];
-
+        let freeform = false;
 
         try {
             const partsRes = await fetch(absoluteUrl(req, IDENTIFY_API), {
@@ -199,43 +203,53 @@ export async function POST(req: NextRequest) {
                 body: JSON.stringify({ transcription: transcripts[0]?.text, make }),
             });
 
-
-
             const partsIdRes = await partsRes.json();
-            const partsIdStr: string = partsIdRes.description;
-            partsIds = partsIdStr.split("/");
 
-            names = await Promise.all(
-                partsIds.map(async (p) => {
-                        const res = await getPartById(p, make as string)
+            if (partsIdRes.freeform) {
+                // No OEM catalogue for this vehicle (or no plate read) - no
+                // assembly ids and no diagrams to highlight, just the part
+                // names the model read off the transcript directly.
+                freeform = true;
+                const freeformNames: string[] = partsIdRes.parts ?? [];
+                partsIds = freeformNames.map((_, i) => `freeform-${i}`);
+                names = freeformNames;
+                webp = freeformNames.map(() => "");
+            } else {
+                const partsIdStr: string = partsIdRes.description ?? "";
+                partsIds = partsIdStr ? partsIdStr.split("/") : [];
 
-                        return res.name;
-                    }
-                ));
+                names = await Promise.all(
+                    partsIds.map(async (p) => {
+                            const res = await getPartById(p, make as string)
 
-            // Some assemblies map to the same display name (e.g. left/right
-            // variants) — keep only the first occurrence of each name so the
-            // customer doesn't see the same part listed twice.
-            const seenNames = new Set<string>();
-            const dedupedIndices = names
-                .map((name, i) => ({ name, i }))
-                .filter(({ name }) => {
-                    if (seenNames.has(name)) return false;
-                    seenNames.add(name);
-                    return true;
-                })
-                .map(({ i }) => i);
+                            return res.name;
+                        }
+                    ));
 
-            partsIds = dedupedIndices.map((i) => partsIds[i]);
-            names = dedupedIndices.map((i) => names[i]);
+                // Some assemblies map to the same display name (e.g. left/right
+                // variants) — keep only the first occurrence of each name so the
+                // customer doesn't see the same part listed twice.
+                const seenNames = new Set<string>();
+                const dedupedIndices = names
+                    .map((name, i) => ({ name, i }))
+                    .filter(({ name }) => {
+                        if (seenNames.has(name)) return false;
+                        seenNames.add(name);
+                        return true;
+                    })
+                    .map(({ i }) => i);
 
-            webp = await Promise.all(
-                partsIds.map(async (p, i) => {
-                    const res = await highlightPart(p, make as string)
-                    const contentType = "image/webp";
-                    return `data:${contentType};base64,${res}`;
-                })
-            );
+                partsIds = dedupedIndices.map((i) => partsIds[i]);
+                names = dedupedIndices.map((i) => names[i]);
+
+                webp = await Promise.all(
+                    partsIds.map(async (p) => {
+                        const res = await highlightPart(p, make as string)
+                        const contentType = "image/webp";
+                        return `data:${contentType};base64,${res}`;
+                    })
+                );
+            }
         } catch (err) {
             console.error(err);
             return NextResponse.json({ error: "Failed to fetch part" });
@@ -247,6 +261,8 @@ export async function POST(req: NextRequest) {
             name: names,
             image: webp,
             vehicle: make,
+            freeform,
+            transcript: transcripts[0]?.text ?? null,
         });
     } catch (err) {
         console.error(err);

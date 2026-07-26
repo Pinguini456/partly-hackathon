@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Deliberately two entries. There's no separate "tracking" tab: a job's
+// live status lives inside its own case, so the only way in is through the
+// case list — click a case, get everything about it.
 const LINKS = [
-  { href: "/", label: "Create" },
-  { href: "/track", label: "Orders" },
+  { href: "/", label: "New case" },
+  { href: "/cases", label: "Cases" },
 ];
 
 // A route "owns" a nav link if it's that link's href or a sub-route of it —
