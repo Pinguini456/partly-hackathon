@@ -6,10 +6,11 @@ import { usePathname } from "next/navigation";
 // Only rendered on staff-facing screens. Customer-facing views (/choose, the
 // customer half of /track) deliberately don't get this bar — it would break
 // the illusion that they're a separate audience, not the internal tool.
-const STAFF_ROUTES = ["/", "/track", "/track/procurement", "/track/suppliers"];
+const STAFF_ROUTES = ["/", "/cases", "/track", "/track/procurement", "/track/suppliers"];
 
 const LINKS = [
   { href: "/", label: "Upload" },
+  { href: "/cases", label: "Cases" },
   { href: "/track", label: "Track Job" },
 ];
 
@@ -22,7 +23,8 @@ function isActive(pathname: string, href: string) {
 
 export default function StaffNav() {
   const pathname = usePathname();
-  if (!STAFF_ROUTES.includes(pathname)) return null;
+  const onStaffRoute = STAFF_ROUTES.includes(pathname) || pathname.startsWith("/cases/");
+  if (!onStaffRoute) return null;
 
   return (
     <nav className="border-b bg-slate-900">

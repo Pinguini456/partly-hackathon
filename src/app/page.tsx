@@ -28,6 +28,8 @@ export default function Home() {
   const [analysing, setAnalysing] = useState(false);
   const [complete, setComplete] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerContact, setCustomerContact] = useState("");
 
 
 
@@ -71,6 +73,10 @@ export default function Home() {
 
     if (!inspection) return;
 
+    if (!inspection.files.some((f) => f.type.startsWith("image/"))) {
+      setErrorMsg("Add at least one photo of the vehicle so we know which car this is.");
+      return;
+    }
 
     setAnalysing(true);
 
@@ -86,12 +92,42 @@ export default function Home() {
 
     });
 
-
-
-    const formData = new FormData();
-    inspection.files.forEach((file) => formData.append("files", file));
-
     try {
+      // Create the case first - before analysis, before we even know the
+      // vehicle - so a slow or interrupted upload still leaves something
+      // real and resumable.
+      const caseRes = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: customerName || null,
+          customer_contact: customerContact || null,
+        }),
+      });
+      const caseData = await caseRes.json();
+      if (!caseRes.ok || !caseData.id) {
+        throw new Error(caseData.error ?? "Failed to create case");
+      }
+      const caseId = caseData.id as string;
+
+      // Best-effort file persistence - doesn't block the analysis pipeline
+      // below if storage isn't fully set up yet.
+      await Promise.all(
+        inspection.files.map(async (file) => {
+          try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("inspection_id", caseId);
+            await fetch("/api/file_upload", { method: "POST", body: fd });
+          } catch (e) {
+            console.error("file persistence failed", e);
+          }
+        }),
+      );
+
+      const formData = new FormData();
+      inspection.files.forEach((file) => formData.append("files", file));
+
       const response = await fetch("/api/main", {
         method: "POST",
         body: formData,
@@ -113,10 +149,21 @@ export default function Home() {
         return;
       }
 
-      // Hand the identified parts (id/name/image) off to the parts-selection
-      // page rather than rendering them inline here.
+      await fetch(`/api/cases/${caseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicle_slug: data.make ?? null,
+          transcript: data.transcript ?? null,
+          parts: { id: data.id, name: data.name, image: data.image, freeform: data.freeform },
+          status: "parts_identified",
+        }),
+      });
+
+      // Kept as a fallback data source for screens that haven't been wired
+      // to a case id yet.
       sessionStorage.setItem("partly:parts", JSON.stringify(data));
-      router.push("/parts");
+      router.push(`/cases/${caseId}`);
     } catch (error) {
       console.error("Upload failed", error);
       setInspection({
@@ -216,6 +263,29 @@ export default function Home() {
 
 
 
+
+          {/* New case */}
+
+          <div className="mb-6 grid gap-4 rounded-xl border bg-white p-6 shadow-sm sm:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium text-slate-700">Customer name</label>
+              <input
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Joe Smith"
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700">Contact (phone or email)</label>
+              <input
+                value={customerContact}
+                onChange={(e) => setCustomerContact(e.target.value)}
+                placeholder="027 123 4567"
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm text-slate-900"
+              />
+            </div>
+          </div>
 
           {/* Upload box */}
 

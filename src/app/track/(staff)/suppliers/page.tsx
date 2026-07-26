@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Lock } from "lucide-react";
 import {
   Catalogue,
@@ -21,7 +21,6 @@ import {
   fmt,
   daysBetween,
 } from "@/src/lib/procurement";
-import { useMemo } from "react";
 
 // Reads whatever /api/main last identified for this session; falls back to a
 // small fixed demo basket if a staff member lands here cold.
@@ -56,13 +55,47 @@ function defaultChosen(catalogue: Catalogue): Record<PartKey, SupplierOption> {
 type SortMode = "best" | "cheapest" | "soonest";
 
 export default function SupplierDrilldownPage() {
+  return (
+    <Suspense fallback={null}>
+      <SupplierDrilldownPageInner />
+    </Suspense>
+  );
+}
+
+function SupplierDrilldownPageInner() {
   const router = useRouter();
-  const [{ parts, usingFallback }] = useState(loadParts);
+  const searchParams = useSearchParams();
+  const caseId = searchParams.get("case");
+  const [{ parts, usingFallback }, setPartsState] = useState(loadParts);
+
+  useEffect(() => {
+    if (!caseId) return;
+    fetch(`/api/cases/${caseId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const caseParts = data?.case?.parts;
+        if (caseParts?.id?.length) {
+          setPartsState({
+            parts: caseParts.id.map((id: string, i: number) => ({ id, name: caseParts.name[i] ?? id })),
+            usingFallback: false,
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to load case parts", err));
+  }, [caseId]);
+
   const catalogue = useMemo(() => buildCatalogue(parts), [parts]);
   const partKeys = useMemo(() => partKeysOf(catalogue), [catalogue]);
   const [chosen, setChosen] = useState<Record<PartKey, SupplierOption>>(() => defaultChosen(catalogue));
   const [sortMode, setSortMode] = useState<SortMode>("best");
   const [oemOnly, setOemOnly] = useState(false);
+
+  // Re-seed the recommended selection whenever the underlying catalogue
+  // changes (e.g. real case parts arrive after the initial fallback render).
+  useEffect(() => {
+    setChosen(defaultChosen(catalogue));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogue]);
 
   const currentReadyDate = readyDateOf(chosen, catalogue);
   const gating = partKeys.reduce((a, b) => (eta(chosen[a]) > eta(chosen[b]) ? a : b));
@@ -72,7 +105,8 @@ export default function SupplierDrilldownPage() {
     setChosen((prev) => ({ ...prev, [part]: option }));
   }
 
-  function applyBasket() {
+  async function applyBasket() {
+    const basketLabel = `Supplier picks — $${totalCost}, ready ${fmt(currentReadyDate)}`;
     sessionStorage.setItem(
       "partly:chosenBasket",
       JSON.stringify({
@@ -80,9 +114,24 @@ export default function SupplierDrilldownPage() {
           { chosen, cost: totalCost, readyDate: currentReadyDate, gatingPart: gating },
           catalogue,
         ),
-        label: `Supplier picks — $${totalCost}, ready ${fmt(currentReadyDate)}`,
+        label: basketLabel,
       }),
     );
+
+    if (caseId) {
+      try {
+        await fetch(`/api/cases/${caseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ basket: { label: basketLabel }, status: "basket_chosen" }),
+        });
+      } catch (err) {
+        console.error("Failed to save basket to case", err);
+      }
+      router.push(`/cases/${caseId}`);
+      return;
+    }
+
     router.push("/track");
   }
 

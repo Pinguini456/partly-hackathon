@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import {
   Basket,
@@ -42,8 +42,37 @@ function loadParts(): { parts: IdentifiedPart[]; usingFallback: boolean } {
 }
 
 export default function ProcurementPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProcurementPageInner />
+    </Suspense>
+  );
+}
+
+function ProcurementPageInner() {
   const router = useRouter();
-  const [{ parts, usingFallback }] = useState(loadParts);
+  const searchParams = useSearchParams();
+  const caseId = searchParams.get("case");
+  const [{ parts, usingFallback }, setPartsState] = useState(loadParts);
+
+  // A case id in the URL is the source of truth over sessionStorage - fetch
+  // its real persisted parts once the page mounts.
+  useEffect(() => {
+    if (!caseId) return;
+    fetch(`/api/cases/${caseId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const caseParts = data?.case?.parts;
+        if (caseParts?.id?.length) {
+          setPartsState({
+            parts: caseParts.id.map((id: string, i: number) => ({ id, name: caseParts.name[i] ?? id })),
+            usingFallback: false,
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to load case parts", err));
+  }, [caseId]);
+
   const catalogue = useMemo(() => buildCatalogue(parts), [parts]);
   const partKeys = useMemo(() => partKeysOf(catalogue), [catalogue]);
 
@@ -87,14 +116,30 @@ export default function ProcurementPage() {
   const policyIsBinding =
     jobType === "insurance" && +expressScenario.readyDate < +fastestOut.readyDate;
 
-  function applyBasket(basket: Basket, label: string) {
+  async function applyBasket(basket: Basket, label: string) {
+    const basketLabel = `${label} — $${basket.cost}, ready ${fmt(basket.readyDate)}`;
     sessionStorage.setItem(
       "partly:chosenBasket",
       JSON.stringify({
         parts: basketToTimelineParts(basket, catalogue),
-        label: `${label} — $${basket.cost}, ready ${fmt(basket.readyDate)}`,
+        label: basketLabel,
       }),
     );
+
+    if (caseId) {
+      try {
+        await fetch(`/api/cases/${caseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ basket: { label: basketLabel }, status: "basket_chosen" }),
+        });
+      } catch (err) {
+        console.error("Failed to save basket to case", err);
+      }
+      router.push(`/cases/${caseId}`);
+      return;
+    }
+
     router.push("/track");
   }
 

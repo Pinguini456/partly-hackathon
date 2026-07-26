@@ -241,6 +241,8 @@ export async function POST(req: NextRequest) {
             name: names,
             image: webp,
             freeform,
+            make,
+            transcript: transcripts[0]?.text ?? null,
         });
     } catch (err) {
         console.error(err);
