@@ -26,6 +26,15 @@ import { Dialog, DialogContent, DialogTitle } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { VEHICLES } from "@/src/lib/vehicles";
+import { AudioCapture } from "@/src/components/AudioCapture";
+import {
+    Insurance,
+    Intake,
+    CustomerProblem,
+    Todo,
+    makeTodoId,
+    serialiseIntake,
+} from "@/src/lib/intake";
 
 type UploadedFile = { id: string; file: File; previewUrl: string | null };
 
@@ -96,6 +105,74 @@ export default function Home() {
     const [customerName, setCustomerName] = useState("");
     const [customerContact, setCustomerContact] = useState("");
     const [vehicleSlug, setVehicleSlug] = useState("");
+    const [insurance, setInsurance] = useState<Insurance>({});
+
+    // The drop-off conversation. Transcribed as soon as it's captured rather
+    // than at analysis time, so the extraction can be eyeballed — and thrown
+    // away — before it's attached to a real case.
+    const [interviewBusy, setInterviewBusy] = useState(false);
+    const [interviewTranscript, setInterviewTranscript] = useState<string | null>(null);
+    const [problems, setProblems] = useState<CustomerProblem[]>([]);
+    const [suggestedTodos, setSuggestedTodos] = useState<Todo[]>([]);
+    const [interviewError, setInterviewError] = useState<string | null>(null);
+
+    function intakeRecord(): Intake {
+        const filled = Object.fromEntries(
+            Object.entries(insurance).filter(([, v]) => v && v.trim()),
+        );
+        return {
+            insurance: Object.keys(filled).length ? filled : null,
+            interviewTranscript: interviewTranscript,
+            problems,
+            todos: suggestedTodos,
+        };
+    }
+
+    async function handleInterviewCapture(file: File | null) {
+        if (!file) {
+            setInterviewTranscript(null);
+            setProblems([]);
+            setSuggestedTodos([]);
+            setInterviewError(null);
+            return;
+        }
+
+        setInterviewBusy(true);
+        setInterviewError(null);
+        try {
+            const fd = new FormData();
+            fd.append("audio", file);
+            const res = await fetch("/api/interview", { method: "POST", body: fd });
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                setInterviewError(data.error ?? "Couldn't transcribe that recording.");
+                return;
+            }
+
+            setInterviewTranscript(data.transcript || null);
+            setProblems(data.problems ?? []);
+            // Everything the model infers lands as a suggestion. A mechanic
+            // decides what becomes actual work.
+            setSuggestedTodos(
+                (data.todos ?? []).map(
+                    (t: { task: string; reason?: string; fromQuote?: string }) => ({
+                        id: makeTodoId(),
+                        task: t.task,
+                        reason: t.reason,
+                        fromQuote: t.fromQuote,
+                        status: "suggested" as const,
+                        source: "ai" as const,
+                        addedAt: new Date().toISOString(),
+                    }),
+                ),
+            );
+        } catch {
+            setInterviewError("Couldn't transcribe that recording.");
+        } finally {
+            setInterviewBusy(false);
+        }
+    }
 
     const [elapsedMs, setElapsedMs] = useState(0);
     const [stepResults, setStepResults] = useState<Partial<Record<StepKey, string>>>({});
@@ -230,6 +307,16 @@ export default function Home() {
             }
             const caseId = caseData.id as string;
 
+            // Save the intake immediately, not with the analysis results.
+            // The interview and the insurance details are already real; if
+            // the parts pipeline then fails, losing them too would mean
+            // asking the customer to repeat themselves.
+            await fetch(`/api/cases/${caseId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ summary: serialiseIntake(intakeRecord()) }),
+            }).catch(() => {});
+
             // Persist the media against the case. Best-effort: a storage
             // hiccup shouldn't cost the repairer the analysis they're
             // standing there waiting for.
@@ -283,6 +370,7 @@ export default function Home() {
                         image: data.image,
                         freeform: data.freeform,
                     },
+                    summary: serialiseIntake(intakeRecord()),
                     status: "parts_identified",
                 }),
             });
@@ -336,6 +424,7 @@ export default function Home() {
                     files are evidence attached to someone's car, not a
                     standalone parts query. */}
                 {!analysing && (
+                  <>
                     <Card className="mb-6">
                         <CardContent>
                             <h2 className="text-lg font-semibold text-foreground">Customer</h2>
@@ -388,6 +477,154 @@ export default function Home() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Insurance — optional, because plenty of jobs are
+                        private-pay and asking for a claim number that doesn't
+                        exist is how forms get abandoned. */}
+                    <Card className="mb-6">
+                        <CardContent>
+                            <h2 className="text-lg font-semibold text-foreground">
+                                Insurance{" "}
+                                <span className="text-sm font-normal text-muted-foreground">
+                                    — optional
+                                </span>
+                            </h2>
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="insurer">Insurer</Label>
+                                    <Input
+                                        id="insurer"
+                                        value={insurance.insurer ?? ""}
+                                        onChange={(e) =>
+                                            setInsurance((p) => ({ ...p, insurer: e.target.value }))
+                                        }
+                                        placeholder="AA Insurance"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="policy-number">Policy number</Label>
+                                    <Input
+                                        id="policy-number"
+                                        value={insurance.policyNumber ?? ""}
+                                        onChange={(e) =>
+                                            setInsurance((p) => ({
+                                                ...p,
+                                                policyNumber: e.target.value,
+                                            }))
+                                        }
+                                        placeholder="POL-4471902"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="claim-number">Claim number</Label>
+                                    <Input
+                                        id="claim-number"
+                                        value={insurance.claimNumber ?? ""}
+                                        onChange={(e) =>
+                                            setInsurance((p) => ({
+                                                ...p,
+                                                claimNumber: e.target.value,
+                                            }))
+                                        }
+                                        placeholder="CLM-2026-88213"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="excess">Excess</Label>
+                                    <Input
+                                        id="excess"
+                                        value={insurance.excess ?? ""}
+                                        onChange={(e) =>
+                                            setInsurance((p) => ({ ...p, excess: e.target.value }))
+                                        }
+                                        placeholder="$400"
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* The drop-off conversation. This is the half of the job
+                        that normally evaporates the moment the customer drives
+                        off — someone hears "it judders at 80" and it never
+                        reaches the tech who does the work. */}
+                    <Card className="mb-6">
+                        <CardContent>
+                            <h2 className="text-lg font-semibold text-foreground">
+                                Customer interview{" "}
+                                <span className="text-sm font-normal text-muted-foreground">
+                                    — optional
+                                </span>
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Record the customer describing what&apos;s wrong, or upload a clip.
+                                We&apos;ll transcribe it and pull out what they reported.
+                            </p>
+
+                            <div className="mt-4">
+                                <AudioCapture
+                                    onCapture={handleInterviewCapture}
+                                    busy={interviewBusy}
+                                    busyLabel="Transcribing and pulling out the issues…"
+                                />
+                            </div>
+
+                            {interviewError && (
+                                <p className="mt-3 text-sm text-destructive">{interviewError}</p>
+                            )}
+
+                            {problems.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm font-medium text-foreground">
+                                        Reported by the customer
+                                    </p>
+                                    <ul className="mt-2 space-y-2">
+                                        {problems.map((p, i) => (
+                                            <li key={i} className="rounded-lg border p-3">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    {p.summary}
+                                                </p>
+                                                <p className="mt-1 text-xs italic text-muted-foreground">
+                                                    &ldquo;{p.quote}&rdquo;
+                                                </p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {suggestedTodos.length > 0 && (
+                                <div className="mt-4 rounded-lg border border-primary/40 bg-accent/40 p-3">
+                                    <p className="text-sm font-medium text-foreground">
+                                        {suggestedTodos.length} suggested job
+                                        {suggestedTodos.length === 1 ? "" : "s"}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                        You&apos;ll review these on the case before any of it
+                                        becomes actual work.
+                                    </p>
+                                    <ul className="mt-2 space-y-1">
+                                        {suggestedTodos.map((t) => (
+                                            <li
+                                                key={t.id}
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                • {t.task}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {interviewTranscript && problems.length === 0 && !interviewBusy && (
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                    Transcribed, but no specific vehicle issues were picked out.
+                                    The full transcript is still saved to the case.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                  </>
                 )}
 
                 {/* Upload controls — hidden during analysis so there's nothing

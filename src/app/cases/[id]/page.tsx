@@ -17,6 +17,12 @@ import {
     Package,
     ShoppingCart,
     Quote,
+    ShieldCheck,
+    MessageSquareWarning,
+    Check,
+    X,
+    ListChecks,
+    Sparkles,
 } from "lucide-react";
 import { Card, CardContent } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
@@ -26,6 +32,16 @@ import { Separator } from "@/src/components/ui/separator";
 import { CaseTimeline, TimelinePart, ManualStage } from "@/src/components/CaseTimeline";
 import { vehicleLabel, vehiclePlate } from "@/src/lib/vehicles";
 import { isHeroCase } from "@/src/lib/heroCase";
+import {
+    Intake,
+    Todo,
+    TodoStatus,
+    parseIntake,
+    serialiseIntake,
+    hasInsurance,
+    splitTodos,
+    makeTodoId,
+} from "@/src/lib/intake";
 
 type CaseFile = { id: string; filename: string; url: string; created_at: string };
 type Note = { text: string; at: string };
@@ -75,6 +91,11 @@ export default function CaseDetailPage() {
     const [addingNote, setAddingNote] = useState(false);
     const [showFullTranscript, setShowFullTranscript] = useState(false);
 
+    // Intake (insurance, interview, reported problems, job list) is held
+    // locally so ticking a job off feels instant, then written back.
+    const [intake, setIntake] = useState<Intake | null>(null);
+    const [todoText, setTodoText] = useState("");
+
     const load = useCallback(async () => {
         const res = await fetch(`/api/cases/${params.id}`);
         const json = await res.json();
@@ -83,7 +104,43 @@ export default function CaseDetailPage() {
             return;
         }
         setData(json);
+        setIntake(parseIntake(json.case?.summary));
     }, [params.id]);
+
+    async function persistIntake(next: Intake) {
+        setIntake(next);
+        await fetch(`/api/cases/${params.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ summary: serialiseIntake(next) }),
+        }).catch(() => {});
+    }
+
+    function updateTodos(mutate: (todos: Todo[]) => Todo[]) {
+        if (!intake) return;
+        persistIntake({ ...intake, todos: mutate(intake.todos ?? []) });
+    }
+
+    const setTodoStatus = (id: string, status: TodoStatus) =>
+        updateTodos((todos) => todos.map((t) => (t.id === id ? { ...t, status } : t)));
+
+    /** Dismissing a suggestion removes it outright — it was never a job. */
+    const dismissTodo = (id: string) => updateTodos((todos) => todos.filter((t) => t.id !== id));
+
+    function addTodo() {
+        if (!todoText.trim()) return;
+        updateTodos((todos) => [
+            ...todos,
+            {
+                id: makeTodoId(),
+                task: todoText.trim(),
+                status: "accepted",
+                source: "mechanic",
+                addedAt: new Date().toISOString(),
+            },
+        ]);
+        setTodoText("");
+    }
 
     useEffect(() => {
         load();
@@ -137,6 +194,11 @@ export default function CaseDetailPage() {
     const hasParts = Boolean(c.parts?.id?.length);
     const basket = c.basket;
     const plate = vehiclePlate(c.vehicle_slug);
+
+    const problems = intake?.problems ?? [];
+    const todos = intake?.todos ?? [];
+    const { suggested, active, done } = splitTodos(todos);
+    const insurance = intake?.insurance;
 
     const timelineParts: TimelinePart[] =
         basket?.lines?.map((l) => ({
@@ -205,6 +267,142 @@ export default function CaseDetailPage() {
 
                 <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
                     <div className="space-y-6">
+                        {/* What the customer actually said. Kept verbatim next
+                            to the shop's reading of it, so nobody has to take
+                            the paraphrase on trust. */}
+                        {problems.length > 0 && (
+                            <Card>
+                                <CardContent>
+                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                                        <MessageSquareWarning className="h-4 w-4 text-primary" />
+                                        Customer reported
+                                    </h2>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        From the drop-off conversation, in their words.
+                                    </p>
+                                    <ul className="mt-4 space-y-2">
+                                        {problems.map((p, i) => (
+                                            <li key={i} className="rounded-lg border p-3">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    {p.summary}
+                                                </p>
+                                                <p className="mt-1 border-l-2 pl-2 text-xs italic text-muted-foreground">
+                                                    &ldquo;{p.quote}&rdquo;
+                                                </p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Job list. Suggestions are held apart from accepted
+                            work on purpose — an inference off a phone call is
+                            a prompt to look, not an instruction to fix. */}
+                        {(todos.length > 0 || problems.length > 0) && (
+                            <Card>
+                                <CardContent>
+                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                                        <ListChecks className="h-4 w-4 text-primary" />
+                                        Job list
+                                    </h2>
+
+                                    {suggested.length > 0 && (
+                                        <div className="mt-4 rounded-lg border border-primary/40 bg-accent/40 p-3">
+                                            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                                Suggested from what the customer said
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                                Nothing here is on the job until you accept it.
+                                            </p>
+                                            <ul className="mt-3 space-y-2">
+                                                {suggested.map((t) => (
+                                                    <li
+                                                        key={t.id}
+                                                        className="rounded-lg border bg-card p-3"
+                                                    >
+                                                        <p className="text-sm font-medium text-foreground">
+                                                            {t.task}
+                                                        </p>
+                                                        {t.reason && (
+                                                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                                                {t.reason}
+                                                            </p>
+                                                        )}
+                                                        {t.fromQuote && (
+                                                            <p className="mt-1 border-l-2 pl-2 text-xs italic text-muted-foreground">
+                                                                &ldquo;{t.fromQuote}&rdquo;
+                                                            </p>
+                                                        )}
+                                                        <div className="mt-2 flex gap-2">
+                                                            <Button
+                                                                size="xs"
+                                                                onClick={() =>
+                                                                    setTodoStatus(t.id, "accepted")
+                                                                }
+                                                            >
+                                                                <Check />
+                                                                Add to job
+                                                            </Button>
+                                                            <Button
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                onClick={() => dismissTodo(t.id)}
+                                                            >
+                                                                <X />
+                                                                Dismiss
+                                                            </Button>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-4 space-y-2">
+                                        {active.length === 0 && done.length === 0 && (
+                                            <p className="text-sm text-muted-foreground">
+                                                No jobs on the list yet.
+                                            </p>
+                                        )}
+                                        {active.map((t) => (
+                                            <TodoRow
+                                                key={t.id}
+                                                todo={t}
+                                                onToggle={() => setTodoStatus(t.id, "done")}
+                                            />
+                                        ))}
+                                        {done.map((t) => (
+                                            <TodoRow
+                                                key={t.id}
+                                                todo={t}
+                                                done
+                                                onToggle={() => setTodoStatus(t.id, "accepted")}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-4 flex gap-2">
+                                        <Input
+                                            value={todoText}
+                                            onChange={(e) => setTodoText(e.target.value)}
+                                            placeholder="Add a job…"
+                                            onKeyDown={(e) => e.key === "Enter" && addTodo()}
+                                        />
+                                        <Button
+                                            onClick={addTodo}
+                                            disabled={!todoText.trim()}
+                                            size="icon"
+                                            aria-label="Add job"
+                                        >
+                                            <Plus />
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {/* Identified parts */}
                         {hasParts && (
                             <Card>
@@ -421,6 +619,50 @@ export default function CaseDetailPage() {
                             </CardContent>
                         </Card>
 
+                        {hasInsurance(insurance) && (
+                            <Card>
+                                <CardContent>
+                                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                                        <ShieldCheck className="h-4 w-4 text-primary" />
+                                        Insurance
+                                    </h2>
+                                    <dl className="mt-3 space-y-2 text-sm">
+                                        {insurance?.insurer && (
+                                            <InsuranceRow label="Insurer" value={insurance.insurer} />
+                                        )}
+                                        {insurance?.policyNumber && (
+                                            <InsuranceRow
+                                                label="Policy"
+                                                value={insurance.policyNumber}
+                                            />
+                                        )}
+                                        {insurance?.claimNumber && (
+                                            <InsuranceRow
+                                                label="Claim"
+                                                value={insurance.claimNumber}
+                                            />
+                                        )}
+                                        {insurance?.excess && (
+                                            <InsuranceRow label="Excess" value={insurance.excess} />
+                                        )}
+                                    </dl>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {intake?.interviewTranscript && (
+                            <Card>
+                                <CardContent>
+                                    <h2 className="text-lg font-semibold text-foreground">
+                                        Drop-off conversation
+                                    </h2>
+                                    <p className="mt-2 max-h-56 overflow-y-auto text-sm leading-relaxed text-muted-foreground">
+                                        {intake.interviewTranscript}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {files.length === 0 && (
                             <p className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <FileText className="h-4 w-4" />
@@ -431,5 +673,59 @@ export default function CaseDetailPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+function TodoRow({
+    todo,
+    done,
+    onToggle,
+}: {
+    todo: Todo;
+    done?: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <div
+            className={`flex items-start gap-3 rounded-lg border p-3 ${
+                done ? "bg-muted/50" : ""
+            }`}
+        >
+            <button
+                onClick={onToggle}
+                aria-label={done ? `Reopen ${todo.task}` : `Complete ${todo.task}`}
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                    done ? "border-green-600 bg-green-600 text-white" : "hover:border-primary"
+                }`}
+            >
+                {done && <Check className="h-3 w-3" />}
+            </button>
+            <div className="min-w-0 flex-1">
+                <p
+                    className={`text-sm ${
+                        done ? "text-muted-foreground line-through" : "text-foreground"
+                    }`}
+                >
+                    {todo.task}
+                </p>
+                {todo.fromQuote && (
+                    <p className="mt-1 truncate text-xs italic text-muted-foreground">
+                        &ldquo;{todo.fromQuote}&rdquo;
+                    </p>
+                )}
+            </div>
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+                {todo.source === "ai" ? "from interview" : "added"}
+            </Badge>
+        </div>
+    );
+}
+
+function InsuranceRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="truncate font-medium text-foreground">{value}</dd>
+        </div>
     );
 }
