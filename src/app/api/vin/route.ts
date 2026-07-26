@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const res = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-3.1-flash-lite',
             contents: [
                 { text: "What is this vehicles number plate? Reply only with the number plate in all caps. if no number plate is visible, reply with 'None'"},
                 { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } },

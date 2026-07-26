@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const res = await ai.models.generateContent({
-            model: "gemini-flash-latest",
+            model: "gemini-3.1-flash-lite",
             contents: [{ text: `Here is the list of parts for this vehicle:\n\n${partsContext}\n\nReturn the indexes (the numbers before the colon) of the parts needed according to the transcript provided:\n\n${transcription}\n\nReturn only the numbers separated by a forward-slash.` }],
         });
 
