@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
         let names: string[] = [];
         let webp: string[] = [];
         let partsIds: string[] = [];
-
+        let freeform = false;
 
         try {
             const partsRes = await fetch(absoluteUrl(req, IDENTIFY_API), {
@@ -199,27 +199,37 @@ export async function POST(req: NextRequest) {
                 body: JSON.stringify({ transcription: transcripts[0]?.text, make }),
             });
 
-
-
             const partsIdRes = await partsRes.json();
-            const partsIdStr: string = partsIdRes.description;
-            partsIds = partsIdStr.split("/");
 
-            names = await Promise.all(
-                partsIds.map(async (p) => {
-                    const res = await getPartById(p, make as string)
+            if (partsIdRes.freeform) {
+                // No OEM catalogue for this vehicle - no ids, no diagrams to
+                // highlight, just the part names the model read off the
+                // transcript directly.
+                freeform = true;
+                const freeformNames: string[] = partsIdRes.parts ?? [];
+                partsIds = freeformNames.map((_, i) => `freeform-${i}`);
+                names = freeformNames;
+                webp = freeformNames.map(() => "");
+            } else {
+                const partsIdStr: string = partsIdRes.description ?? "";
+                partsIds = partsIdStr ? partsIdStr.split("/") : [];
 
-                    return res.name;
-                }
-            ));
+                names = await Promise.all(
+                    partsIds.map(async (p) => {
+                        const res = await getPartById(p, make as string)
 
-            webp = await Promise.all(
-                partsIds.map(async (p, i) => {
-                    const res = await highlightPart(p, make as string)
-                    const contentType = "image/webp";
-                    return `data:${contentType};base64,${res}`;
-                })
-            );
+                        return res.name;
+                    }
+                ));
+
+                webp = await Promise.all(
+                    partsIds.map(async (p) => {
+                        const res = await highlightPart(p, make as string)
+                        const contentType = "image/webp";
+                        return `data:${contentType};base64,${res}`;
+                    })
+                );
+            }
         } catch (err) {
             console.error(err);
             return NextResponse.json({ error: "Failed to fetch part" });
@@ -230,6 +240,7 @@ export async function POST(req: NextRequest) {
             id: partsIds,
             name: names,
             image: webp,
+            freeform,
         });
     } catch (err) {
         console.error(err);

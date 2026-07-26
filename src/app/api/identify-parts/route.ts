@@ -45,7 +45,25 @@ async function getParts(slug: string): Promise<Assembly[]> {
     return parts;
 }
 
+// No OEM catalogue for this vehicle (the brief's own "low coverage" edge
+// case - special editions, rare imports). Rather than fail the job, ask the
+// same model to read likely damaged parts straight off the transcript, with
+// no catalogue to constrain it. These come back as free-text names with no
+// part number or diagram - main/route.ts skips the diagram-highlight step
+// for them rather than treating this as a failure.
+async function identifyFreeform(transcription: string): Promise<string[]> {
+    const res = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: [{
+            text: `A repairer described damage to a vehicle we have no parts catalogue for. From this transcript, list the specific parts that likely need replacing or repair. Return only a plain list, one part per line, no numbering, no extra commentary:\n\n${transcription}`,
+        }],
+    });
 
+    return (res.text ?? "")
+        .split("\n")
+        .map((line) => line.replace(/^[-*\d.\s]+/, "").trim())
+        .filter(Boolean);
+}
 
 export async function POST(req: NextRequest) {
     const {transcription, make} = await req.json();
@@ -59,8 +77,14 @@ export async function POST(req: NextRequest) {
     try {
         parts = await getParts(make);
     } catch (err) {
-        console.log(err);
-        return NextResponse.json({ error: "Failed to fetch parts" }, { status: 500 });
+        console.log("No catalogue for", make, "- falling back to freeform identification:", err);
+        try {
+            const names = await identifyFreeform(transcription);
+            return NextResponse.json({ freeform: true, parts: names });
+        } catch (freeformErr) {
+            console.log(freeformErr);
+            return NextResponse.json({ error: "Failed to identify parts" }, { status: 500 });
+        }
     }
 
     const relevantParts = parts.filter((p) => p.is_orderable);

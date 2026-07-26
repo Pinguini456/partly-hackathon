@@ -16,6 +16,7 @@ type PartsResponse = {
   id: string[];
   name: string[];
   image: string[];
+  freeform?: boolean;
 };
 
 type Part = {
@@ -104,6 +105,7 @@ export default function PartsPage() {
 
   const [parts, setParts] = useState<Part[] | null>(null);
   const [missing, setMissing] = useState(false);
+  const [freeform, setFreeform] = useState(false);
 
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<string, string>>({});
@@ -125,6 +127,7 @@ export default function PartsPage() {
         image: data.image[i] ?? "",
       }));
       setParts(zipped);
+      setFreeform(Boolean(data.freeform));
       setActivePartId(zipped[0]?.id ?? null);
     } catch {
       setMissing(true);
@@ -207,6 +210,11 @@ export default function PartsPage() {
             <p className="mt-2 text-slate-600">
               Choose a supplier for each identified part.
             </p>
+            {freeform && (
+              <p className="mt-3 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+                No OEM catalogue for this vehicle — parts read directly from the technician&apos;s notes, no diagram available.
+              </p>
+            )}
           </div>
         </header>
 

@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import {
-  CATALOGUE,
-  PART_KEYS,
+  Catalogue,
+  IdentifiedPart,
+  FALLBACK_PARTS,
   PartKey,
   SupplierOption,
   buildBaskets,
+  buildCatalogue,
+  partKeysOf,
   paretoFrontier,
   pickBestValue,
   readyDateOf,
@@ -18,12 +21,35 @@ import {
   fmt,
   daysBetween,
 } from "@/src/lib/procurement";
+import { useMemo } from "react";
+
+// Reads whatever /api/main last identified for this session; falls back to a
+// small fixed demo basket if a staff member lands here cold.
+function loadParts(): { parts: IdentifiedPart[]; usingFallback: boolean } {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem("partly:parts");
+      if (raw) {
+        const data = JSON.parse(raw) as { id: string[]; name: string[] };
+        if (data.id?.length) {
+          return {
+            parts: data.id.map((id, i) => ({ id, name: data.name[i] ?? id })),
+            usingFallback: false,
+          };
+        }
+      }
+    } catch {
+      // fall through to fallback below
+    }
+  }
+  return { parts: FALLBACK_PARTS, usingFallback: true };
+}
 
 // Recommended starting basket — same best-value logic as /procurement, so
 // this screen can never disagree with the main page about the solver's
 // actual output.
-function defaultChosen(): Record<PartKey, SupplierOption> {
-  const frontier = paretoFrontier(buildBaskets(false, false));
+function defaultChosen(catalogue: Catalogue): Record<PartKey, SupplierOption> {
+  const frontier = paretoFrontier(buildBaskets(catalogue, false, false));
   return pickBestValue(frontier, 850, new Date("2026-08-04")).chosen;
 }
 
@@ -31,13 +57,16 @@ type SortMode = "best" | "cheapest" | "soonest";
 
 export default function SupplierDrilldownPage() {
   const router = useRouter();
-  const [chosen, setChosen] = useState<Record<PartKey, SupplierOption>>(defaultChosen);
+  const [{ parts, usingFallback }] = useState(loadParts);
+  const catalogue = useMemo(() => buildCatalogue(parts), [parts]);
+  const partKeys = useMemo(() => partKeysOf(catalogue), [catalogue]);
+  const [chosen, setChosen] = useState<Record<PartKey, SupplierOption>>(() => defaultChosen(catalogue));
   const [sortMode, setSortMode] = useState<SortMode>("best");
   const [oemOnly, setOemOnly] = useState(false);
 
-  const currentReadyDate = readyDateOf(chosen);
-  const gating = PART_KEYS.reduce((a, b) => (eta(chosen[a]) > eta(chosen[b]) ? a : b));
-  const totalCost = PART_KEYS.reduce((s, k) => s + chosen[k].price, 0);
+  const currentReadyDate = readyDateOf(chosen, catalogue);
+  const gating = partKeys.reduce((a, b) => (eta(chosen[a]) > eta(chosen[b]) ? a : b));
+  const totalCost = partKeys.reduce((s, k) => s + chosen[k].price, 0);
 
   function selectOption(part: PartKey, option: SupplierOption) {
     setChosen((prev) => ({ ...prev, [part]: option }));
@@ -47,7 +76,10 @@ export default function SupplierDrilldownPage() {
     sessionStorage.setItem(
       "partly:chosenBasket",
       JSON.stringify({
-        parts: basketToTimelineParts({ chosen, cost: totalCost, readyDate: currentReadyDate, gatingPart: gating }),
+        parts: basketToTimelineParts(
+          { chosen, cost: totalCost, readyDate: currentReadyDate, gatingPart: gating },
+          catalogue,
+        ),
         label: `Supplier picks — $${totalCost}, ready ${fmt(currentReadyDate)}`,
       }),
     );
@@ -63,6 +95,11 @@ export default function SupplierDrilldownPage() {
           it. Every delta is the effect on the whole job&apos;s pickup date, not just this part
           arriving earlier — a part with slack doesn&apos;t get the car home sooner.
         </p>
+        {usingFallback && (
+          <p className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+            Showing demo parts — no inspection found in this session yet.
+          </p>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
           <div className="flex items-center gap-1 rounded-md border p-1">
@@ -91,10 +128,10 @@ export default function SupplierDrilldownPage() {
         </div>
 
         <div className="mt-4 space-y-6">
-          {PART_KEYS.map((partKey) => {
-            const part = CATALOGUE[partKey];
+          {partKeys.map((partKey) => {
+            const part = catalogue[partKey];
             const isGating = partKey === gating;
-            const others = PART_KEYS.filter((k) => k !== partKey);
+            const others = partKeys.filter((k) => k !== partKey);
             const othersGatingEta = others.length
               ? Math.max(...others.map((k) => eta(chosen[k])))
               : -Infinity;
@@ -112,7 +149,7 @@ export default function SupplierDrilldownPage() {
             };
             const rows: Row[] = part.options.map((option) => {
               const hypothetical = { ...chosen, [partKey]: option };
-              const newReadyDate = readyDateOf(hypothetical);
+              const newReadyDate = readyDateOf(hypothetical, catalogue);
               return {
                 option,
                 blocked: oemOnly && !option.oem,

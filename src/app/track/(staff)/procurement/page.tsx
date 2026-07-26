@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import {
-  CATALOGUE,
-  PART_KEYS,
   Basket,
+  IdentifiedPart,
+  FALLBACK_PARTS,
   buildBaskets,
+  buildCatalogue,
+  partKeysOf,
   paretoFrontier,
   pickBestValue,
   expressOverride,
@@ -16,8 +18,35 @@ import {
   daysBetween,
 } from "@/src/lib/procurement";
 
+// Reads whatever /api/main last identified for this session; falls back to a
+// small fixed demo basket if a staff member lands here cold (a bookmark, a
+// refresh mid-demo, rehearsing this screen in isolation).
+function loadParts(): { parts: IdentifiedPart[]; usingFallback: boolean } {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem("partly:parts");
+      if (raw) {
+        const data = JSON.parse(raw) as { id: string[]; name: string[] };
+        if (data.id?.length) {
+          return {
+            parts: data.id.map((id, i) => ({ id, name: data.name[i] ?? id })),
+            usingFallback: false,
+          };
+        }
+      }
+    } catch {
+      // fall through to fallback below
+    }
+  }
+  return { parts: FALLBACK_PARTS, usingFallback: true };
+}
+
 export default function ProcurementPage() {
   const router = useRouter();
+  const [{ parts, usingFallback }] = useState(loadParts);
+  const catalogue = useMemo(() => buildCatalogue(parts), [parts]);
+  const partKeys = useMemo(() => partKeysOf(catalogue), [catalogue]);
+
   const [targetDate, setTargetDate] = useState("2026-08-04");
   const [budget, setBudget] = useState(850);
   const [manualOemOnly, setManualOemOnly] = useState(false);
@@ -28,7 +57,7 @@ export default function ProcurementPage() {
   const oemOnly = jobType === "insurance" ? true : manualOemOnly;
   const groundOnly = jobType === "insurance";
 
-  const allBaskets = useMemo(() => buildBaskets(oemOnly, groundOnly), [oemOnly, groundOnly]);
+  const allBaskets = useMemo(() => buildBaskets(catalogue, oemOnly, groundOnly), [catalogue, oemOnly, groundOnly]);
   const frontier = useMemo(() => paretoFrontier(allBaskets), [allBaskets]);
 
   const target = new Date(targetDate);
@@ -38,12 +67,15 @@ export default function ProcurementPage() {
   const bestValue = pickBestValue(frontier, budget, target);
 
   const feasible = frontier.some((b) => b.cost <= budget && +b.readyDate <= +target);
-  const bindingPart = CATALOGUE[fastestOut.gatingPart].name;
+  const bindingPart = catalogue[fastestOut.gatingPart].name;
 
   // Always compare both modes, regardless of which one is currently toggled,
   // so the quote line under the toggle is a live claim, not a static one.
-  const privateFrontier = useMemo(() => paretoFrontier(buildBaskets(manualOemOnly, false)), [manualOemOnly]);
-  const insuranceFrontier = useMemo(() => paretoFrontier(buildBaskets(true, true)), []);
+  const privateFrontier = useMemo(
+    () => paretoFrontier(buildBaskets(catalogue, manualOemOnly, false)),
+    [catalogue, manualOemOnly],
+  );
+  const insuranceFrontier = useMemo(() => paretoFrontier(buildBaskets(catalogue, true, true)), [catalogue]);
   const privateBest = pickBestValue(privateFrontier, budget, target);
   const insuranceBest = pickBestValue(insuranceFrontier, budget, target);
   const modeCostDelta = privateBest.cost - insuranceBest.cost;
@@ -51,7 +83,7 @@ export default function ProcurementPage() {
 
   // Under insurance, is the ground-freight rule (not a part) actually the
   // thing costing days? Compare against expressing the current gating part.
-  const expressScenario = expressOverride(fastestOut);
+  const expressScenario = expressOverride(fastestOut, catalogue);
   const policyIsBinding =
     jobType === "insurance" && +expressScenario.readyDate < +fastestOut.readyDate;
 
@@ -59,7 +91,7 @@ export default function ProcurementPage() {
     sessionStorage.setItem(
       "partly:chosenBasket",
       JSON.stringify({
-        parts: basketToTimelineParts(basket),
+        parts: basketToTimelineParts(basket, catalogue),
         label: `${label} — $${basket.cost}, ready ${fmt(basket.readyDate)}`,
       }),
     );
@@ -71,7 +103,7 @@ export default function ProcurementPage() {
       label,
       cost: basket.cost,
       readyDateISO: basket.readyDate.toISOString(),
-      parts: basketToTimelineParts(basket),
+      parts: basketToTimelineParts(basket, catalogue),
     });
     sessionStorage.setItem(
       "partly:customerChoice",
@@ -111,6 +143,11 @@ export default function ProcurementPage() {
           Constraints apply to the whole basket, not each part — the solver decides per part
           which supplier to use.
         </p>
+        {usingFallback && (
+          <p className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+            Showing demo parts — no inspection found in this session yet.
+          </p>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
           <span className="text-slate-500">Out by</span>
@@ -201,7 +238,7 @@ export default function ProcurementPage() {
             <div className="flex-1">
               <p className="text-sm text-amber-800">
                 Insurer&apos;s ground-freight policy is the binding constraint. Express on the{" "}
-                <strong>{CATALOGUE[fastestOut.gatingPart].name.toLowerCase()}</strong> would hit{" "}
+                <strong>{catalogue[fastestOut.gatingPart].name.toLowerCase()}</strong> would hit{" "}
                 {fmt(expressScenario.readyDate)} for ${expressScenario.cost - fastestOut.cost} more.
               </p>
               {expressRequested ? (
@@ -225,7 +262,7 @@ export default function ProcurementPage() {
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
             <p className="text-sm text-amber-800">
               Nothing meets both. The <strong>{bindingPart}</strong> is the binding constraint —
-              every basket below is limited by it, not by the other {PART_KEYS.length - 1} parts.
+              every basket below is limited by it, not by the other {partKeys.length - 1} parts.
             </p>
           </div>
         )}
@@ -265,8 +302,8 @@ export default function ProcurementPage() {
                   )}
                 </div>
                 <p className="mt-3 text-xs text-slate-500">
-                  {PART_KEYS.map(
-                    (k) => `${CATALOGUE[k].name}: ${basket.chosen[k].company} (${basket.chosen[k].speed})`,
+                  {partKeys.map(
+                    (k) => `${catalogue[k].name}: ${basket.chosen[k].company} (${basket.chosen[k].speed})`,
                   ).join(" · ")}
                 </p>
                 <button
